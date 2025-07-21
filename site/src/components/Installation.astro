@@ -1,0 +1,218 @@
+---
+import CommandBlock from './CommandBlock.astro';
+import SingleCommandBlock from './SingleCommandBlock.astro';
+import OutputBlock from './OutputBlock.astro';
+---
+
+<section id="installation" class="section">
+	<h2>Installation</h2>
+	
+	<div class="os-selector">
+		<button class="os-tab active" data-os="macos">macOS</button>
+		<button class="os-tab" data-os="linux">Linux</button>
+		<button class="os-tab" data-os="windows">Windows</button>
+	</div>
+	
+	<div class="install-grid">
+		<div class="install-method" data-os-content="macos">
+			<h3>Quick Install for macOS</h3>
+			<p>Install using our automated script:</p>
+			<CommandBlock code={`# Clone and install
+$ git clone https://github.com/dotchk/dotchk.git
+$ cd dotchk
+$ ./install.sh`} />
+			<p class="note">Requires macOS 10.15 or later. The script will install Rust if needed.</p>
+		</div>
+
+		<div class="install-method" data-os-content="linux">
+			<h3>Quick Install for Linux</h3>
+			<p>Install using our automated script:</p>
+			<CommandBlock code={`# Clone and install
+$ git clone https://github.com/dotchk/dotchk.git
+$ cd dotchk
+$ ./install.sh`} />
+			<p class="note">Works on all major Linux distributions. The script handles dependencies automatically.</p>
+		</div>
+
+		<div class="install-method" data-os-content="windows">
+			<h3>Quick Install for Windows</h3>
+			<p>Install using PowerShell:</p>
+			<CommandBlock code={`# Clone the repository
+> git clone https://github.com/dotchk/dotchk.git
+> cd dotchk
+
+# Build with cargo
+> cargo build --release
+
+# Add to PATH
+> $env:Path += ";$pwd\\target\\release"`} />
+			<p class="note">Requires Windows 10 or later with Rust installed via <a href="https://rustup.rs" target="_blank" rel="noopener noreferrer">rustup.rs</a></p>
+		</div>
+
+		<div class="install-method">
+			<h3>Manual Install</h3>
+			<p>For more control over the installation process:</p>
+			<CommandBlock code={`# Build from source
+$ cargo build --release
+
+# Install to cargo bin
+$ cargo install --path .`} />
+			<p class="note">Requires Rust 1.70 or later. Install Rust from <a href="https://rustup.rs" target="_blank" rel="noopener noreferrer">rustup.rs</a></p>
+		</div>
+	</div>
+
+	<div class="verify">
+		<h3>Verify Installation</h3>
+		<SingleCommandBlock command="dotchk --version" />
+		<OutputBlock output={`dotchk 1.0.0`} />
+	</div>
+</section>
+
+<script>
+	// Auto-detect OS and show appropriate instructions
+	function detectOS() {
+		const platform = navigator.platform.toLowerCase();
+		const userAgent = navigator.userAgent.toLowerCase();
+		
+		if (platform.includes('mac') || userAgent.includes('mac')) {
+			return 'macos';
+		} else if (platform.includes('win') || userAgent.includes('win')) {
+			return 'windows';
+		} else if (platform.includes('linux') || userAgent.includes('linux')) {
+			return 'linux';
+		}
+		return 'macos'; // Default to macOS if can't detect
+	}
+
+	// Set active OS on page load
+	document.addEventListener('DOMContentLoaded', () => {
+		const detectedOS = detectOS();
+		const osTab = document.querySelector(`[data-os="${detectedOS}"]`);
+		if (osTab) {
+			osTab.click();
+		}
+	});
+
+	// Handle tab clicks
+	document.querySelectorAll('.os-tab').forEach(tab => {
+		tab.addEventListener('click', () => {
+			const selectedOS = tab.dataset.os;
+			
+			// Update active tab
+			document.querySelectorAll('.os-tab').forEach(t => t.classList.remove('active'));
+			tab.classList.add('active');
+			
+			// Show/hide content
+			document.querySelectorAll('[data-os-content]').forEach(content => {
+				content.style.display = content.dataset.osContent === selectedOS ? 'block' : 'none';
+			});
+		});
+	});
+</script>
+
+<style>
+	.os-selector {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: 2rem;
+		background: rgba(255, 255, 255, 0.02);
+		padding: 0.5rem;
+		border-radius: 12px;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		width: fit-content;
+	}
+
+	.os-tab {
+		background: transparent;
+		border: none;
+		color: var(--color-text-dim);
+		padding: 0.5rem 1.5rem;
+		border-radius: 8px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.2s;
+		font-family: var(--font-sans);
+		font-size: 0.875rem;
+	}
+
+	.os-tab:hover {
+		background: rgba(255, 255, 255, 0.05);
+		color: var(--color-text);
+	}
+
+	.os-tab.active {
+		background: var(--color-accent);
+		color: var(--color-bg);
+		font-weight: 600;
+	}
+
+	.os-tab.active:hover {
+		background: var(--color-accent-dim);
+	}
+
+	.install-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 2rem;
+		margin-bottom: 3rem;
+	}
+
+	.install-method {
+		background: rgba(255, 255, 255, 0.02);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 12px;
+		padding: 2rem;
+		transition: all 0.3s;
+	}
+
+	.install-method:hover {
+		background: rgba(255, 255, 255, 0.04);
+		border-color: rgba(0, 255, 136, 0.3);
+		transform: translateY(-2px);
+	}
+
+	.install-method h3 {
+		color: var(--color-accent);
+		margin-top: 0;
+	}
+
+	.install-method p {
+		margin-bottom: 1rem;
+	}
+
+	.note {
+		font-size: 0.875rem;
+		color: var(--color-text-dim);
+		margin-top: 1rem;
+		margin-bottom: 0;
+	}
+
+	.verify {
+		background: rgba(0, 255, 136, 0.05);
+		border: 1px solid rgba(0, 255, 136, 0.2);
+		border-radius: 12px;
+		padding: 2rem;
+	}
+
+	.verify h3 {
+		margin-top: 0;
+		color: var(--color-accent);
+	}
+
+	.verify pre {
+		margin-bottom: 0;
+	}
+
+	.comment {
+		color: #666;
+	}
+
+	.prompt {
+		color: var(--color-accent);
+		font-weight: 600;
+	}
+
+	.output {
+		color: var(--color-text-dim);
+	}
+</style>

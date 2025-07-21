@@ -1,0 +1,147 @@
+# Build artifacts
+target/
+*/target/
+dist/
+out/
+bin/
+build/
+lib_managed/
+src_managed/
+
+# Package files
+*.jar
+*.zip
+*.tar.gz
+*.rar
+
+# IDE and editor files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.metals/
+.bloop/
+.bsp/
+metals.sbt
+.scala_dependencies
+.worksheet
+
+# Eclipse
+.project
+.settings/
+.classpath
+.cache
+.cache-main
+.cache-tests
+
+# Ensime
+.ensime
+.ensime_cache/
+
+# sbt specific
+project/boot/
+project/plugins/project/
+project/project/
+project/target/
+.jvmopts
+.sbtopts
+
+# Play Framework
+db
+eclipse
+lib
+log
+logs
+modules
+precompiled
+tmp
+test-result
+server.pid
+test-results/
+test-reports/
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+*.sqlite3
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+.Spotlight-V100
+.Trashes
+
+# Temporary files
+*.swp
+*.swo
+*~
+*.tmp
+*.bak
+*.orig
+.history
+temp/
+tmp/
+
+# Environment and secrets
+.env
+.env.*
+local.*
+secrets/
+credentials/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+pip-log.txt
+.coverage
+htmlcov/
+.pytest_cache/
+*.coverage
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+!site/package-lock.json
+yarn.lock
+
+# Documentation
+_site/
+.pygments-cache
+.mkdocs-cache/
+
+# Project specific
+*.csv
+*.txt
+!requirements.txt
+.claude/
+docker/
+native/
+.lib/
+bench/
+benchmarks/
+*.jmh
+null/
+
+# Other
+*.class
+*.dll
+*.so
+*.dylib
+.idea_modules

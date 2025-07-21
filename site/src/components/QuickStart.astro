@@ -1,0 +1,84 @@
+---
+import CommandBlock from './CommandBlock.astro';
+import SingleCommandBlock from './SingleCommandBlock.astro';
+import OutputBlock from './OutputBlock.astro';
+---
+
+<section id="quick-start" class="section">
+	<h2>Quick Start</h2>
+	
+	<div class="examples">
+		<div class="example">
+			<h3>Basic Domain Check</h3>
+			<SingleCommandBlock command="dotchk example.com" />
+			<OutputBlock output={`example.com → TAKEN (45ms)`} />
+		</div>
+
+		<div class="example">
+			<h3>Multiple Domains</h3>
+			<SingleCommandBlock command="dotchk startup.com myapp.io coolsite.dev" />
+			<OutputBlock output={`startup.com → TAKEN (45ms)
+myapp.io → TAKEN (47ms)
+coolsite.dev → AVAILABLE (52ms)`} />
+		</div>
+
+		<div class="example">
+			<h3>Pattern Matching</h3>
+			<CommandBlock code={`# Find 3-letter .com domains
+$ dotchk pattern "[a-z]{3}.com" --limit 10
+
+# Mixed patterns
+$ dotchk pattern "[a-z]{2}[0-9]{2}.io" --limit 50`} />
+		</div>
+	</div>
+</section>
+
+<style>
+	.examples {
+		display: grid;
+		gap: 1.5rem;
+	}
+
+	.example {
+		background: rgba(255, 255, 255, 0.02);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 12px;
+		padding: 1.5rem;
+		transition: all 0.3s;
+	}
+
+	.example:hover {
+		background: rgba(255, 255, 255, 0.04);
+		border-color: rgba(0, 255, 136, 0.2);
+	}
+
+	.example h3 {
+		font-size: 1.25rem;
+		margin-top: 0;
+		margin-bottom: 1rem;
+		color: var(--color-accent);
+	}
+
+	.example pre {
+		margin-bottom: 0;
+		background: rgba(0, 0, 0, 0.3);
+	}
+
+	.comment {
+		color: #666;
+	}
+
+	.prompt {
+		color: var(--color-accent);
+		font-weight: 600;
+	}
+
+	.output {
+		color: var(--color-text-dim);
+	}
+
+	.available {
+		color: var(--color-accent);
+		font-weight: 600;
+	}
+</style>

@@ -1,0 +1,124 @@
+---
+export interface Props {
+  command: string;
+  prompt?: string;
+}
+
+const { command, prompt = '$' } = Astro.props;
+const id = Math.random().toString(36).substring(7);
+---
+
+<div class="single-command-block">
+  <pre><code><span class="prompt">{prompt}</span> {command}</code></pre>
+  <button 
+    class="copy-btn" 
+    data-command={command}
+    aria-label="Copy command"
+    title="Copy command"
+  >
+    <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+    <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  </button>
+</div>
+
+<script>
+  document.querySelectorAll('.single-command-block .copy-btn').forEach(button => {
+    button.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const command = button.getAttribute('data-command');
+      
+      try {
+        await navigator.clipboard.writeText(command);
+        
+        // Show success state
+        const copyIcon = button.querySelector('.copy-icon');
+        const checkIcon = button.querySelector('.check-icon');
+        
+        copyIcon.style.display = 'none';
+        checkIcon.style.display = 'block';
+        button.classList.add('copied');
+        
+        // Reset after 2 seconds
+        setTimeout(() => {
+          copyIcon.style.display = 'block';
+          checkIcon.style.display = 'none';
+          button.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    });
+  });
+</script>
+
+<style>
+  .single-command-block {
+    position: relative;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1rem 3rem 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .single-command-block:has(+ .output-block) {
+    margin-bottom: 0;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .single-command-block pre {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+  }
+
+  .single-command-block code {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--color-text);
+    background: transparent;
+    padding: 0;
+  }
+
+  .prompt {
+    color: var(--color-accent);
+    font-weight: 600;
+    user-select: none;
+  }
+
+  .copy-btn {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--color-text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .copy-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: var(--color-text);
+  }
+
+  .copy-btn.copied {
+    background: rgba(0, 255, 136, 0.2);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+</style>

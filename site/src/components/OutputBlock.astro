@@ -1,0 +1,29 @@
+---
+export interface Props {
+  output: string;
+}
+
+const { output } = Astro.props;
+---
+
+<pre class="output-block"><code>{output}</code></pre>
+
+<style>
+  .output-block {
+    margin-top: -1.5rem;
+    margin-bottom: 2rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 0 0 8px 8px;
+    padding: 1rem;
+    color: var(--color-text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+  }
+  
+  .output-block code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+</style>

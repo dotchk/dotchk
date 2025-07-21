@@ -1,0 +1,271 @@
+---
+export interface Props {
+	title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="dotchk - Check thousands of domains per second across 1,440+ TLDs with unparalleled speed and accuracy." />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="icon" type="image/png" sizes="64x64" href="/assets/images/favicon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16x16.png" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png" />
+		<link rel="manifest" href="/manifest.json" />
+		<meta name="theme-color" content="#00ff88" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap">
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'">
+		<noscript>
+			<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap">
+		</noscript>
+	</head>
+	<body>
+		<nav class="nav">
+			<div class="nav-container">
+				<a href="/" class="nav-logo">
+					<img src="/assets/images/logo-dotchk-correct.png" alt="dotchk" class="nav-logo-img" width="32" height="32" loading="eager">
+					<span>dotchk</span>
+				</a>
+				<div class="nav-links">
+					<a href="#installation">Installation</a>
+					<a href="#quick-start">Quick Start</a>
+					<a href="#commands">Commands</a>
+					<a href="#examples">Examples</a>
+					<a href="https://github.com/dotchk/dotchk" target="_blank" rel="noopener noreferrer" class="github-link">
+						<svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+							<path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.84 9.49.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.71-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.93 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02.8-.22 1.65-.33 2.5-.33.85 0 1.7.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.83-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85 0 1.34-.01 2.42-.01 2.75 0 .27.18.58.69.48A10.02 10.02 0 0022 12c0-5.523-4.477-10-10-10z"/>
+						</svg>
+					</a>
+				</div>
+			</div>
+		</nav>
+		<slot />
+		<footer class="footer">
+			<div class="footer-container">
+				<p>&copy; 2025 dotchk. Built with speed in mind.</p>
+			</div>
+		</footer>
+	</body>
+</html>
+
+<style is:global>
+	:root {
+		--color-bg: #0a0a0a;
+		--color-bg-alt: #0f0f0f;
+		--color-text: #ffffff;
+		--color-text-dim: #a0a0a0;
+		--color-accent: #00ff88;
+		--color-accent-dim: #00cc6a;
+		--color-neon-lime: #ccff00;
+		--color-optic-pink: #ff0066;
+		--color-tangy-orange: #ff6600;
+		--color-vivid-cyan: #00ccff;
+		--font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+		--font-mono: 'JetBrains Mono', 'Courier New', monospace;
+	}
+
+	* {
+		margin: 0;
+		padding: 0;
+		box-sizing: border-box;
+	}
+
+	html {
+		scroll-behavior: smooth;
+		font-size: 16px;
+	}
+
+	body {
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-family: var(--font-sans);
+		line-height: 1.6;
+		overflow-x: hidden;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+
+	.nav {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 1000;
+		background: rgba(10, 10, 10, 0.8);
+		backdrop-filter: blur(10px);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		padding: 1rem 0;
+	}
+
+	.nav-container {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0 2rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.nav-logo {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		text-decoration: none;
+		color: var(--color-accent);
+	}
+
+	.nav-logo-img {
+		width: 2rem;
+		height: 2rem;
+		filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.5));
+		transition: filter 0.3s;
+		/* Fine-tune vertical alignment */
+		transform: translateY(-1px);
+	}
+
+	.nav-logo:hover .nav-logo-img {
+		filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.8));
+	}
+
+	.nav-logo span {
+		font-size: 1.5rem;
+		font-weight: 900;
+		letter-spacing: -0.02em;
+		/* Ensure proper baseline alignment */
+		line-height: 1;
+		display: flex;
+		align-items: center;
+	}
+
+	.nav-links {
+		display: flex;
+		gap: 2rem;
+		align-items: center;
+	}
+
+	.nav-links a {
+		color: var(--color-text-dim);
+		text-decoration: none;
+		font-weight: 500;
+		transition: color 0.2s;
+	}
+
+	.nav-links a:hover {
+		color: var(--color-text);
+	}
+
+	.github-link {
+		display: flex;
+		align-items: center;
+		opacity: 0.8;
+	}
+
+	.github-link:hover {
+		opacity: 1;
+	}
+
+	main {
+		margin-top: 4rem;
+		min-height: calc(100vh - 8rem);
+	}
+
+	.footer {
+		margin-top: 8rem;
+		padding: 2rem 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.footer-container {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0 2rem;
+		text-align: center;
+		color: var(--color-text-dim);
+	}
+
+	h1, h2, h3, h4, h5, h6 {
+		font-weight: 700;
+		line-height: 1.2;
+		margin-bottom: 1rem;
+		letter-spacing: -0.02em;
+	}
+
+	h2 {
+		font-size: 2.5rem;
+		margin-top: 4rem;
+		margin-bottom: 2rem;
+	}
+
+	h3 {
+		font-size: 1.5rem;
+		margin-top: 2rem;
+		margin-bottom: 1rem;
+	}
+
+	p {
+		margin-bottom: 1.5rem;
+		color: var(--color-text-dim);
+	}
+
+	code {
+		font-family: var(--font-mono);
+		background: rgba(255, 255, 255, 0.05);
+		padding: 0.2em 0.4em;
+		border-radius: 4px;
+		font-size: 0.9em;
+	}
+
+	pre {
+		background: var(--color-bg-alt);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 8px;
+		padding: 1.5rem;
+		overflow-x: auto;
+		margin-bottom: 2rem;
+	}
+
+	pre code {
+		background: none;
+		padding: 0;
+		font-size: 0.875rem;
+		line-height: 1.7;
+	}
+
+	a {
+		color: var(--color-accent);
+		text-decoration: none;
+		transition: color 0.2s;
+	}
+
+	a:hover {
+		color: var(--color-accent-dim);
+		text-decoration: underline;
+	}
+
+	.section {
+		padding: 4rem 0;
+	}
+
+	@media (max-width: 768px) {
+		.nav-links {
+			gap: 1rem;
+		}
+
+		.nav-links a:not(.github-link) {
+			display: none;
+		}
+
+		h2 {
+			font-size: 2rem;
+		}
+	}
+</style>

@@ -1,0 +1,133 @@
+---
+export interface Props {
+  code: string;
+  lang?: string;
+  showLineNumbers?: boolean;
+}
+
+const { code, lang = 'bash', showLineNumbers = false } = Astro.props;
+const id = Math.random().toString(36).substring(7);
+
+// Process the code to add visual prompts
+const processedLines = code.split('\n').map(line => {
+  // Check if line starts with $ (bash/unix command line)
+  if (line.trim().startsWith('$')) {
+    // Remove the $ for the data attribute
+    const command = line.replace(/^\s*\$\s*/, '');
+    return { isCommand: true, display: line, command };
+  }
+  // Check if line starts with > (PowerShell command line)
+  else if (line.trim().startsWith('>')) {
+    // Remove the > for the data attribute
+    const command = line.replace(/^\s*>\s*/, '');
+    return { isCommand: true, display: line, command };
+  }
+  // Check if line starts with # (comment)
+  else if (line.trim().startsWith('#')) {
+    return { isComment: true, display: line, command: line };
+  }
+  else {
+    return { isCommand: false, display: line, command: line };
+  }
+});
+
+// Create the copy text (without $ or > prompts, and excluding comment lines)
+const copyText = processedLines
+  .filter(line => !line.isComment) // Exclude comment lines
+  .map(line => line.command)
+  .join('\n')
+  .trim();
+---
+
+<div class="code-block">
+  <button class="copy-button" data-copy-text={copyText} aria-label="Copy code">
+    <svg class="copy-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+    <svg class="check-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  </button>
+  <pre><code id={id} class={lang}>{code}</code></pre>
+</div>
+
+<script>
+  document.querySelectorAll('.copy-button').forEach(button => {
+    button.addEventListener('click', async () => {
+      const copyText = button.getAttribute('data-copy-text');
+      
+      try {
+        await navigator.clipboard.writeText(copyText);
+        
+        // Show success state
+        const copyIcon = button.querySelector('.copy-icon');
+        const checkIcon = button.querySelector('.check-icon');
+        
+        copyIcon.style.display = 'none';
+        checkIcon.style.display = 'block';
+        button.classList.add('copied');
+        
+        // Reset after 2 seconds
+        setTimeout(() => {
+          copyIcon.style.display = 'block';
+          checkIcon.style.display = 'none';
+          button.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    });
+  });
+</script>
+
+<style>
+  .code-block {
+    position: relative;
+    margin-bottom: 2rem;
+  }
+  
+  /* When followed by output block */
+  .code-block:has(+ .output-block) {
+    margin-bottom: 0;
+  }
+  
+  .code-block:has(+ .output-block) pre {
+    border-radius: 8px 8px 0 0;
+  }
+
+  .copy-button {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--color-text-dim);
+    z-index: 10;
+  }
+
+  .copy-button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: var(--color-text);
+  }
+
+  .copy-button.copied {
+    background: rgba(0, 255, 136, 0.2);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  pre {
+    padding-right: 4rem; /* Make room for copy button */
+  }
+
+  /* For inline code in commands */
+  :global(.command-card pre) {
+    position: relative;
+  }
+</style>

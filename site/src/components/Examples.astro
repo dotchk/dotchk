@@ -1,0 +1,99 @@
+---
+import CodeBlock from './CodeBlock.astro';
+import CommandBlock from './CommandBlock.astro';
+---
+
+<section id="examples" class="section">
+	<h2>Examples</h2>
+	
+	<div class="use-cases">
+		<div class="use-case">
+			<h3>Startup Name Generation</h3>
+			<CommandBlock code={`# Tech prefixes with alternation
+$ dotchk pattern "(get|try|use|my)[a-z]{3}.(com|io|app)" --limit 200
+
+# AI/ML focused
+$ dotchk pattern "(ai|ml|deep|smart)[a-z]{2,4}.(ai|io)" --limit 150`} />
+		</div>
+
+		<div class="use-case">
+			<h3>Brand Protection</h3>
+			<CommandBlock code={`# Check typosquatting
+$ dotchk yourbrand.com yourband.com yourbran.com
+
+# International domains
+$ dotchk tld yourbrand --tlds com,co.uk,de,fr,jp,cn`} />
+		</div>
+
+		<div class="use-case">
+			<h3>Domain Investment</h3>
+			<CommandBlock code={`# Premium short domains
+$ dotchk pattern "[a-z]{3}.com" --limit 1000 --available-only
+
+# Numeric domains
+$ dotchk pattern "[0-9]{4}.com" --limit 10000`} />
+		</div>
+
+		<div class="use-case">
+			<h3>Automation</h3>
+			<CodeBlock code={`#!/bin/bash
+# Monitor domain availability
+while true; do
+    if dotchk example.com --quiet | grep -q AVAILABLE; then
+        echo "Domain is available!"
+        break
+    fi
+    sleep 3600
+done`} />
+		</div>
+
+		<div class="use-case">
+			<h3>Integration</h3>
+			<CommandBlock code={`# Export to CSV
+$ dotchk pattern "[a-z]{4}.com" --export domains.csv
+
+# Pipe to other tools
+$ dotchk tld mybrand --all | grep AVAILABLE > available.txt
+
+# Parallel processing
+$ cat patterns.txt | parallel -j 10 dotchk pattern {} --limit 100`} />
+		</div>
+	</div>
+</section>
+
+<style>
+	.use-cases {
+		display: grid;
+		gap: 2rem;
+	}
+
+	.use-case {
+		background: rgba(255, 255, 255, 0.02);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 12px;
+		padding: 2rem;
+		transition: all 0.3s;
+	}
+
+	.use-case:hover {
+		background: rgba(255, 255, 255, 0.04);
+		border-color: rgba(0, 255, 136, 0.2);
+		transform: translateY(-2px);
+	}
+
+	.use-case h3 {
+		font-size: 1.25rem;
+		margin-top: 0;
+		margin-bottom: 1rem;
+		color: var(--color-text);
+	}
+
+	.use-case pre {
+		margin-bottom: 0;
+		background: rgba(0, 0, 0, 0.3);
+	}
+
+	.comment {
+		color: #666;
+	}
+</style>

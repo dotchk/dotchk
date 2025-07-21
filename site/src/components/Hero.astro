@@ -1,0 +1,271 @@
+---
+import CodeBlock from './CodeBlock.astro';
+
+const exampleCode = `# Check domain availability
+$ dotchk example.com
+example.com → TAKEN (45ms)
+
+# Pattern-based search
+$ dotchk "[a-z]{3}.com" --limit 10
+abc.com → TAKEN (42ms)
+xyz.com → TAKEN (44ms)
+qzx.com → AVAILABLE (46ms)`;
+---
+
+<section class="hero">
+	<div class="hero-bg"></div>
+	<div class="hero-content">
+		<h1 class="hero-title">
+			<span class="hero-title-main">dotchk</span>
+		</h1>
+		<p class="hero-subtitle">High-Performance Domain Availability Checker</p>
+		<p class="hero-description">
+			Check thousands of domains per second across 1,440+ TLDs<br>
+			with unparalleled speed and accuracy.
+		</p>
+		<div class="hero-stats">
+			<div class="stat">
+				<div class="stat-value">10,000+</div>
+				<div class="stat-label">domains/sec</div>
+			</div>
+			<div class="stat">
+				<div class="stat-value">1,440+</div>
+				<div class="stat-label">TLDs supported</div>
+			</div>
+			<div class="stat">
+				<div class="stat-value">&lt;50ms</div>
+				<div class="stat-label">avg response</div>
+			</div>
+		</div>
+		<div class="hero-actions">
+			<a href="#installation" class="btn btn-primary">Get Started</a>
+			<a href="https://github.com/dotchk/dotchk" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">View on GitHub</a>
+		</div>
+	</div>
+	<div class="hero-code">
+		<CodeBlock code={exampleCode} lang="bash" />
+	</div>
+</section>
+
+<style>
+	.hero {
+		position: relative;
+		min-height: 100vh;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem;
+		overflow: hidden;
+	}
+
+	.hero-bg {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: 
+			radial-gradient(circle at 20% 50%, rgba(0, 255, 136, 0.15) 0%, transparent 50%),
+			radial-gradient(circle at 80% 50%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+			radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.05) 0%, transparent 70%);
+		filter: blur(100px);
+		z-index: -1;
+	}
+
+	.hero-content {
+		text-align: center;
+		max-width: 1200px;
+		width: 100%;
+		margin-bottom: 4rem;
+	}
+
+	.hero-title {
+		margin-bottom: 1.5rem;
+	}
+
+	.hero-title-main {
+		font-size: clamp(4rem, 15vw, 10rem);
+		font-weight: 900;
+		letter-spacing: -0.06em;
+		background: linear-gradient(135deg, var(--color-vivid-cyan) 0%, var(--color-neon-lime) 25%, var(--color-accent) 50%, var(--color-tangy-orange) 75%, var(--color-optic-pink) 100%);
+		background-size: 300% 300%;
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+		display: inline-block;
+		animation: glow 3s ease-in-out infinite alternate;
+	}
+
+	@keyframes glow {
+		0% {
+			filter: drop-shadow(0 0 30px rgba(0, 204, 255, 0.5));
+			background-position: 0% 50%;
+		}
+		25% {
+			filter: drop-shadow(0 0 35px rgba(204, 255, 0, 0.6));
+			background-position: 50% 50%;
+		}
+		50% {
+			filter: drop-shadow(0 0 40px rgba(0, 255, 136, 0.7));
+			background-position: 100% 50%;
+		}
+		75% {
+			filter: drop-shadow(0 0 35px rgba(255, 102, 0, 0.6));
+			background-position: 50% 50%;
+		}
+		100% {
+			filter: drop-shadow(0 0 30px rgba(255, 0, 102, 0.5));
+			background-position: 0% 50%;
+		}
+	}
+
+	.hero-subtitle {
+		font-size: clamp(1.5rem, 3vw, 2rem);
+		font-weight: 600;
+		color: var(--color-text);
+		margin-bottom: 1rem;
+		letter-spacing: -0.02em;
+	}
+
+	.hero-description {
+		font-size: 1.25rem;
+		color: var(--color-text-dim);
+		margin-bottom: 3rem;
+		line-height: 1.8;
+	}
+
+	.hero-stats {
+		display: flex;
+		justify-content: center;
+		gap: 4rem;
+		margin-bottom: 3rem;
+	}
+
+	.stat {
+		text-align: center;
+	}
+
+	.stat-value {
+		font-size: 2.5rem;
+		font-weight: 800;
+		color: var(--color-accent);
+		letter-spacing: -0.02em;
+	}
+
+	.stat-label {
+		font-size: 0.875rem;
+		color: var(--color-text-dim);
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+	}
+
+	.hero-actions {
+		display: flex;
+		gap: 1rem;
+		justify-content: center;
+		flex-wrap: wrap;
+	}
+
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.875rem 2rem;
+		border-radius: 8px;
+		font-weight: 600;
+		font-size: 1rem;
+		text-decoration: none;
+		transition: all 0.2s;
+		letter-spacing: -0.01em;
+	}
+
+	.btn-primary {
+		background: var(--color-accent);
+		color: var(--color-bg);
+	}
+
+	.btn-primary:hover {
+		background: var(--color-accent-dim);
+		transform: translateY(-2px);
+		box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+		text-decoration: none;
+	}
+
+	.btn-secondary {
+		background: transparent;
+		color: var(--color-text);
+		border: 2px solid rgba(255, 255, 255, 0.2);
+	}
+
+	.btn-secondary:hover {
+		border-color: rgba(255, 255, 255, 0.4);
+		background: rgba(255, 255, 255, 0.05);
+		text-decoration: none;
+	}
+
+	.hero-code {
+		background: rgba(15, 15, 15, 0.6);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 12px;
+		padding: 2rem;
+		backdrop-filter: blur(10px);
+		max-width: 600px;
+		width: 100%;
+		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+	}
+
+	.hero-code pre {
+		background: transparent;
+		border: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.hero-code code {
+		background: transparent;
+		color: var(--color-text-dim);
+		font-size: 0.875rem;
+		line-height: 1.7;
+	}
+
+	.comment {
+		color: #666;
+	}
+
+	.prompt {
+		color: var(--color-accent);
+		font-weight: 600;
+	}
+
+	.output {
+		color: var(--color-text-dim);
+	}
+
+	.available {
+		color: var(--color-accent);
+		font-weight: 600;
+	}
+
+	@media (max-width: 768px) {
+		.hero {
+			min-height: auto;
+			padding-top: 6rem;
+		}
+
+		.hero-stats {
+			gap: 2rem;
+		}
+
+		.stat-value {
+			font-size: 2rem;
+		}
+
+		.hero-code {
+			padding: 1.5rem;
+		}
+
+		.hero-description br {
+			display: none;
+		}
+	}
+</style>

@@ -1,0 +1,36 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Hero from '../components/Hero.astro';
+import Installation from '../components/Installation.astro';
+import QuickStart from '../components/QuickStart.astro';
+import Commands from '../components/Commands.astro';
+import Examples from '../components/Examples.astro';
+import Performance from '../components/Performance.astro';
+---
+
+<Layout title="dotchk - High-Performance Domain Availability Checker">
+	<main>
+		<Hero />
+		<div class="content-wrapper">
+			<Installation />
+			<QuickStart />
+			<Commands />
+			<Examples />
+			<Performance />
+		</div>
+	</main>
+</Layout>
+
+<style>
+	.content-wrapper {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0 2rem;
+	}
+
+	@media (max-width: 768px) {
+		.content-wrapper {
+			padding: 0 1rem;
+		}
+	}
+</style>

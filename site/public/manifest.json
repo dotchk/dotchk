@@ -1,0 +1,27 @@
+{
+  "name": "dotchk - Domain Availability Checker",
+  "short_name": "dotchk",
+  "description": "High-performance domain availability checker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#00ff88",
+  "icons": [
+    {
+      "src": "/assets/images/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/images/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/images/logo-dotchk-correct.png",
+      "sizes": "620x620",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

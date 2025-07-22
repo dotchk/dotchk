@@ -2,14 +2,18 @@
 import CodeBlock from './CodeBlock.astro';
 
 const exampleCode = `# Check domain availability
-$ dotchk example.com
+$ dotchk example.com startup.io mybrand.dev
 example.com → TAKEN (45ms)
+startup.io → AVAILABLE (89ms) ✓
+mybrand.dev → TAKEN (38ms)
 
 # Pattern-based search
-$ dotchk "[a-z]{3}.com" --limit 10
+$ dotchk pattern "[a-z]{3}.com" --limit 5
 abc.com → TAKEN (42ms)
 xyz.com → TAKEN (44ms)
-qzx.com → AVAILABLE (46ms)`;
+qzx.com → AVAILABLE (46ms) ✓
+zyx.com → AVAILABLE (39ms) ✓
+qqq.com → TAKEN (52ms)`;
 ---
 
 <section class="hero">

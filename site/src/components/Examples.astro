@@ -10,31 +10,63 @@ import CommandBlock from './CommandBlock.astro';
 		<div class="use-case">
 			<h3>Startup Name Generation</h3>
 			<CommandBlock code={`# Tech prefixes with alternation
-$ dotchk pattern "(get|try|use|my)[a-z]{3}.(com|io|app)" --limit 200
+$ dotchk pattern "(get|try|use|my)[a-z]{3}.(com|io|app)"
+Generating domains...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 48/48
 
-# AI/ML focused
-$ dotchk pattern "(ai|ml|deep|smart)[a-z]{2,4}.(ai|io)" --limit 150`} />
+getabc.com → TAKEN (67ms)
+tryabc.com → AVAILABLE (45ms) ✓
+useabc.com → TAKEN (89ms)
+myabc.com → TAKEN (52ms)
+getxyz.io → TAKEN (156ms)
+tryxyz.io → AVAILABLE (41ms) ✓
+... (42 more results)
+
+✓ Found 12 available domains`} />
 		</div>
 
 		<div class="use-case">
 			<h3>Brand Protection</h3>
-			<CommandBlock code={`# Check typosquatting
-$ dotchk yourbrand.com yourband.com yourbran.com
+			<CommandBlock code={`# Check across TLD groups
+$ dotchk tld yourbrand --tech --business
 
-# Check across TLD groups
-$ dotchk tld yourbrand --tech --business --available-only
+[Tech TLDs]
+yourbrand.io → TAKEN (89ms)
+yourbrand.dev → AVAILABLE (42ms) ✓
+yourbrand.app → AVAILABLE (38ms) ✓
+yourbrand.tech → TAKEN (156ms)
+yourbrand.ai → TIMEOUT (3000ms) ⚠
 
-# International domains
-$ dotchk tld yourbrand --country --available-only`} />
+[Business TLDs]  
+yourbrand.com → TAKEN (45ms)
+yourbrand.biz → AVAILABLE (67ms) ✓
+yourbrand.company → AVAILABLE (44ms) ✓
+yourbrand.inc → TAKEN (51ms)
+
+✓ Found 4 available domains
+⚠ 1 domain timed out`} />
 		</div>
 
 		<div class="use-case">
 			<h3>Domain Investment</h3>
-			<CommandBlock code={`# Premium short domains
-$ dotchk pattern "[a-z]{3}.com" --limit 1000 --available-only
+			<CommandBlock code={`# Premium short domains with stats
+$ dotchk pattern "[a-z]{3}.com" --limit 50 --stats
 
-# Numeric domains
-$ dotchk pattern "[0-9]{4}.com" --limit 10000`} />
+aaa.com → TAKEN (45ms)
+aab.com → TAKEN (52ms)
+aac.com → TIMEOUT (3000ms) ⚠
+aad.com → AVAILABLE (39ms) ✓
+... (46 more)
+
+╭────────────────────────────╮
+│      Summary Stats       │
+├────────────────────────────┤
+│ Total: 50                │
+│ Available: 3 (6%)        │
+│ Taken: 45 (90%)          │
+│ Errors: 2 (4%)           │
+│ Avg time: 87ms           │
+╰────────────────────────────╯`} />
 		</div>
 
 		<div class="use-case">

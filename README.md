@@ -117,17 +117,41 @@ dotchk example.com test.io startup.dev
 **Output:**
 ```
 example.com → TAKEN (47ms)
-test.io → TAKEN (92ms)
+test.io → TAKEN (92ms) 
 startup.dev → AVAILABLE (38ms)
+myapp.xyz → TAKEN (156ms)
+coolproject.app → AVAILABLE (41ms)
 ```
 
 ### 2. Pattern-Based Discovery
 
-Find available domains matching patterns. **Only shows available domains**:
+Find available domains matching patterns:
 
 ```bash
 # Find 3-letter .com domains
-dotchk pattern "[a-z]{3}.com" --limit 100
+dotchk pattern "[a-z]{3}.com" --limit 10
+```
+
+**Output:**
+```
+Searching for pattern: [a-z]{3}.com
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 10/10
+
+aaa.com → TAKEN (45ms)
+aab.com → TAKEN (52ms)
+aac.com → TAKEN (48ms)
+aad.com → TAKEN (61ms)
+aae.com → TAKEN (44ms)
+aaf.com → AVAILABLE (39ms) ✓
+aag.com → TAKEN (55ms)
+aah.com → TAKEN (42ms)
+aai.com → TAKEN (49ms)
+aaj.com → AVAILABLE (38ms) ✓
+
+✓ Found 2 available domains
+```
+
+```bash
 
 # Tech startup names (get + 4 letters)
 dotchk pattern "get[a-z]{4}.com" --limit 50
@@ -157,7 +181,29 @@ dotchk tld startup --tlds com,io,dev,app
 
 # Show only available TLDs
 dotchk tld mybrand --popular --available-only
+```
 
+**Output with --tech flag:**
+```
+Checking mybrand across tech TLDs...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 20/20
+
+mybrand.io → TAKEN (89ms)
+mybrand.dev → AVAILABLE (42ms) ✓
+mybrand.app → AVAILABLE (38ms) ✓
+mybrand.tech → TAKEN (156ms)
+mybrand.cloud → AVAILABLE (44ms) ✓
+mybrand.ai → TAKEN (67ms)
+mybrand.digital → AVAILABLE (51ms) ✓
+mybrand.software → TAKEN (48ms)
+mybrand.systems → AVAILABLE (40ms) ✓
+mybrand.network → AVAILABLE (39ms) ✓
+... (10 more)
+
+✓ Found 6 available domains
+```
+
+```bash
 # Check ALL 1,080+ public TLDs (excludes private, adult, gambling TLDs)
 dotchk tld uniquename --all --available-only
 ```
@@ -209,10 +255,28 @@ dotchk bulk domains.txt --output results.csv --stats
 **File format** (domains.txt):
 ```
 example.com
-mysite.io
+mysite.io  
 startup.dev
 # Comments are ignored
 brand.com
+techstartup.ai
+```
+
+**Output:**
+```
+Checking 5 domains...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 5/5
+
+example.com → TAKEN (45ms)
+mysite.io → AVAILABLE (92ms) ✓
+startup.dev → TAKEN (38ms)
+brand.com → TAKEN (67ms)
+techstartup.ai → TIMEOUT (3000ms) ⚠
+
+✓ Found 1 available domain
+⚠ 1 domain timed out
+
+Exported results to results.csv
 ```
 
 ## Examples
@@ -233,7 +297,28 @@ dotchk getmyawesomestartup.com trymyawesomestartup.com
 dotchk pattern "[a-z]{4}startup.com" --limit 100
 
 # 5. Try multiple prefixes and extensions at once
-dotchk pattern "(get|try|use|my)awesome.(com|io|app)" --limit 10
+dotchk pattern "(get|try|use|my)awesome.(com|io|app)"
+```
+
+**Output:**
+```
+Generating domains from pattern...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 12/12
+
+getawesome.com → TAKEN (67ms)
+tryawesome.com → AVAILABLE (45ms) ✓
+useawesome.com → TAKEN (52ms)
+myawesome.com → TAKEN (89ms)
+getawesome.io → TAKEN (94ms)
+tryawesome.io → AVAILABLE (41ms) ✓  
+useawesome.io → AVAILABLE (38ms) ✓
+myawesome.io → TAKEN (156ms)
+getawesome.app → AVAILABLE (44ms) ✓
+tryawesome.app → AVAILABLE (39ms) ✓
+useawesome.app → TAKEN (48ms)
+myawesome.app → AVAILABLE (42ms) ✓
+
+✓ Found 6 available domains
 ```
 
 ### Brand Protection
@@ -253,8 +338,37 @@ dotchk bulk competitors.txt
 
 ```bash
 # Find valuable 3-letter domains
-dotchk pattern "[a-z]{3}.io" --limit 1000
+dotchk pattern "[a-z]{3}.io" --limit 50 --stats
+```
 
+**Output with --stats:**
+```
+Searching for pattern: [a-z]{3}.io
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 50/50
+
+aaa.io → TAKEN (89ms)
+aab.io → TAKEN (92ms)
+aac.io → TIMEOUT (3000ms) ⚠
+aad.io → AVAILABLE (45ms) ✓
+aae.io → ERROR: Invalid domain ⚠
+... (45 more results)
+
+╭─────────────────────────────────────╮
+│           Summary Stats             │
+├─────────────────────────────────────┤
+│ Total checked      : 50             │
+│ Available          : 8 (16%)        │
+│ Taken              : 39 (78%)       │
+│ Errors             : 3 (6%)         │
+│                                     │
+│ Avg response time  : 127ms          │
+│ Min response time  : 38ms           │
+│ Max response time  : 3000ms         │
+│ Total time         : 2.4s           │
+╰─────────────────────────────────────╯
+```
+
+```bash
 # Check trending keywords
 for keyword in ai ml crypto web3 defi nft; do
   dotchk tld $keyword --popular --available-only
@@ -375,7 +489,25 @@ This tool checks NS (nameserver) records for speed. This means:
 - The domain is registered but has no nameservers
 - Always verify with WHOIS before purchasing
 
+**Example of edge cases:**
+```bash
+$ dotchk edge-cases.com newly-registered.io parked-domain.net
+
+edge-cases.com → AVAILABLE (45ms) ✓
+newly-registered.io → AVAILABLE (89ms) ✓  # May be false positive!
+parked-domain.net → AVAILABLE (67ms) ✓    # May be false positive!
+```
+
 **"Getting timeout errors"**
+```bash
+$ dotchk problematic.no difficult.cn slowserver.xyz
+
+problematic.no → TIMEOUT (3000ms) ⚠
+difficult.cn → TIMEOUT (3000ms) ⚠  
+slowserver.xyz → TAKEN (2847ms)    # Almost timed out
+```
+
+Solutions:
 - Increase timeout: `--timeout 5000`
 - Reduce parallelism: `--parallel 50`
 - Check your internet connection

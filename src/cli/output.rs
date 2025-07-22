@@ -262,7 +262,7 @@ pub fn print_tld_statistics(stats: &dotchk::export::Stats) {
         stats.unavailable.to_string().color(*TAKEN_COLOR).bold(),
         format!("of {} TLDs", stats.total).color(*DIM_COLOR),
         format!(
-            "({:.0}%)",
+            "({:.1}%)",
             (stats.unavailable as f64 / stats.total as f64) * 100.0
         )
         .color(*HEADER_COLOR)

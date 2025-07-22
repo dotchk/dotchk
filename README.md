@@ -234,7 +234,7 @@ mybrand.inc → AVAILABLE (39ms) ✓
 │ Taken              : 24 (60.0%)     │
 │ Errors             : 1 (2.5%)       │
 │                                     │
-│ Registered in 24 of 40 TLDs (60%)   │
+│ Registered in 24 of 40 TLDs (60.0%) │
 │                                     │
 │ Avg response time  : 72ms           │
 │ Min response time  : 38ms           │

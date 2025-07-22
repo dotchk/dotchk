@@ -193,7 +193,7 @@ pub fn print_statistics(stats: &dotchk::export::Stats) {
     println!();
     println!(
         "  {} {} {} {}",
-        "Registered".color(*DIM_COLOR),
+        "Registered in".color(*DIM_COLOR),
         stats.unavailable.to_string().color(*TAKEN_COLOR).bold(),
         format!("of {} domains", stats.total).color(*DIM_COLOR),
         format!(

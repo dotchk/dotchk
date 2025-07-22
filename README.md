@@ -575,7 +575,7 @@ For developers who want to use dotchk as a Rust library:
 Add to your `Cargo.toml`:
 ```toml
 [dependencies]
-dotchk = "1.2"
+dotchk = "1.3"
 tokio = { version = "1", features = ["full"] }
 ```
 

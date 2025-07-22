@@ -189,20 +189,6 @@ pub fn print_statistics(stats: &dotchk::export::Stats) {
         );
     }
 
-    // Add summary line for domains that are taken/registered
-    println!();
-    println!(
-        "  {} {} {} {}",
-        "Registered in".color(*DIM_COLOR),
-        stats.unavailable.to_string().color(*TAKEN_COLOR).bold(),
-        format!("of {} domains", stats.total).color(*DIM_COLOR),
-        format!(
-            "({:.0}%)",
-            (stats.unavailable as f64 / stats.total as f64) * 100.0
-        )
-        .color(*HEADER_COLOR).bold()
-    );
-
     // Performance section
     println!("\n{}", "Performance".color(*DIM_COLOR));
     println!(

@@ -401,8 +401,6 @@ aae.io → ERROR: Invalid domain ⚠
 │ Taken              : 39 (78%)       │
 │ Errors             : 3 (6%)         │
 │                                     │
-│ Registered in 39 of 50 domains (78%) │
-│                                     │
 │ Avg response time  : 127ms          │
 │ Min response time  : 38ms           │
 │ Max response time  : 3000ms         │

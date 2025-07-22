@@ -265,7 +265,8 @@ pub fn print_tld_statistics(stats: &dotchk::export::Stats) {
             "({:.0}%)",
             (stats.unavailable as f64 / stats.total as f64) * 100.0
         )
-        .color(*HEADER_COLOR).bold()
+        .color(*HEADER_COLOR)
+        .bold()
     );
 
     // Performance section

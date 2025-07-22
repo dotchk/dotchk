@@ -189,6 +189,99 @@ pub fn print_statistics(stats: &dotchk::export::Stats) {
         );
     }
 
+    // Add summary line for domains that are taken/registered
+    println!();
+    println!(
+        "  {} {} {} {}",
+        "Registered".color(*DIM_COLOR),
+        stats.unavailable.to_string().color(*TAKEN_COLOR).bold(),
+        format!("of {} domains", stats.total).color(*DIM_COLOR),
+        format!(
+            "({:.0}%)",
+            (stats.unavailable as f64 / stats.total as f64) * 100.0
+        )
+        .color(*HEADER_COLOR).bold()
+    );
+
+    // Performance section
+    println!("\n{}", "Performance".color(*DIM_COLOR));
+    println!(
+        "  Average          {}",
+        format!("{}ms", stats.avg_response_time_ms).color(*INFO_COLOR)
+    );
+    println!(
+        "  Median (P50)     {}",
+        format!("{}ms", stats.p50_response_time_ms).color(*INFO_COLOR)
+    );
+    println!(
+        "  95th Percentile  {}",
+        format!("{}ms", stats.p95_response_time_ms).color(*INFO_COLOR)
+    );
+    println!(
+        "  99th Percentile  {}",
+        format!("{}ms", stats.p99_response_time_ms).color(*INFO_COLOR)
+    );
+}
+
+/// Print statistics in a clean table format for TLD command
+pub fn print_tld_statistics(stats: &dotchk::export::Stats) {
+    if is_quiet() {
+        return;
+    }
+
+    print_header("Statistics");
+
+    // Summary section
+    println!("{}", "Summary".color(*DIM_COLOR));
+    println!(
+        "  Total checked    {}",
+        stats.total.to_string().color(*HEADER_COLOR).bold()
+    );
+    println!(
+        "  Available        {} {}",
+        stats.available.to_string().color(*AVAILABLE_COLOR).bold(),
+        format!(
+            "({:.1}%)",
+            (stats.available as f64 / stats.total as f64) * 100.0
+        )
+        .color(*DIM_COLOR)
+    );
+    println!(
+        "  Taken            {} {}",
+        stats.unavailable.to_string().color(*TAKEN_COLOR),
+        format!(
+            "({:.1}%)",
+            (stats.unavailable as f64 / stats.total as f64) * 100.0
+        )
+        .color(*DIM_COLOR)
+    );
+
+    if stats.errors > 0 {
+        println!(
+            "  Errors           {} {}",
+            stats.errors.to_string().color(*ERROR_COLOR),
+            format!(
+                "({:.1}%)",
+                (stats.errors as f64 / stats.total as f64) * 100.0
+            )
+            .color(*DIM_COLOR)
+        );
+    }
+
+    // Add the TLD-specific summary line
+    println!();
+    println!(
+        "  {} {} {} {}",
+        "Registered in".color(*DIM_COLOR),
+        stats.unavailable.to_string().color(*TAKEN_COLOR).bold(),
+        format!("of {} TLDs", stats.total).color(*DIM_COLOR),
+        format!(
+            "({:.0}%)",
+            (stats.unavailable as f64 / stats.total as f64) * 100.0
+        )
+        .color(*HEADER_COLOR).bold()
+    );
+
     // Performance section
     println!("\n{}", "Performance".color(*DIM_COLOR));
     println!(

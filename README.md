@@ -204,6 +204,46 @@ mybrand.network → AVAILABLE (39ms) ✓
 ```
 
 ```bash
+# Check with statistics
+dotchk tld mybrand --tech --business --stats
+```
+
+**Output with --stats:**
+```
+Checking mybrand across tech and business TLDs...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 40/40
+
+[mybrand]
+mybrand.com → TAKEN (45ms)
+mybrand.io → TAKEN (89ms)
+mybrand.dev → AVAILABLE (42ms) ✓
+mybrand.app → AVAILABLE (38ms) ✓
+mybrand.tech → TAKEN (156ms)
+mybrand.ai → TAKEN (67ms)
+mybrand.biz → AVAILABLE (51ms) ✓
+mybrand.business → AVAILABLE (48ms) ✓
+mybrand.company → TAKEN (44ms)
+mybrand.inc → AVAILABLE (39ms) ✓
+... (30 more)
+
+╭─────────────────────────────────────╮
+│           Summary Stats             │
+├─────────────────────────────────────┤
+│ Total checked      : 40             │
+│ Available          : 15 (37.5%)     │
+│ Taken              : 24 (60.0%)     │
+│ Errors             : 1 (2.5%)       │
+│                                     │
+│ Registered in 24 of 40 TLDs (60%)   │
+│                                     │
+│ Avg response time  : 72ms           │
+│ Min response time  : 38ms           │
+│ Max response time  : 156ms          │
+│ Total time         : 1.8s           │
+╰─────────────────────────────────────╯
+```
+
+```bash
 # Check ALL 1,080+ public TLDs (excludes private, adult, gambling TLDs)
 dotchk tld uniquename --all --available-only
 ```
@@ -360,6 +400,8 @@ aae.io → ERROR: Invalid domain ⚠
 │ Available          : 8 (16%)        │
 │ Taken              : 39 (78%)       │
 │ Errors             : 3 (6%)         │
+│                                     │
+│ Registered 39 of 50 domains (78%)   │
 │                                     │
 │ Avg response time  : 127ms          │
 │ Min response time  : 38ms           │

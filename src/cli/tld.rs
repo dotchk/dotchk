@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use super::output::{
     create_progress_bar, format_tld_result, print_footer_note, print_header, print_info,
 };
-use super::utils::{export_results, print_stats};
+use super::utils::{export_results, print_tld_stats};
 
 const POPULAR_TLDS: &[&str] = &[
     "com", "net", "org", "io", "dev", "app", "co", "me", "ai", "xyz", "info", "biz",
@@ -129,7 +129,7 @@ pub async fn check_tlds(
     print_grouped_results(&domains, &grouped_results, available_only);
 
     if show_stats {
-        print_stats(&results);
+        print_tld_stats(&results);
     }
 
     if let Some(path) = output {

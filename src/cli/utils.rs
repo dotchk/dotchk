@@ -1,5 +1,6 @@
 use crate::cli::output::{
     format_domain_result, print_export_success, print_footer_note, print_statistics,
+    print_tld_statistics,
 };
 use anyhow::Result;
 use dotchk::{export::StatsExporter, CheckResult, CsvExporter};
@@ -46,4 +47,9 @@ pub fn export_results(results: &[CheckResult], path: &PathBuf, available_only: b
 pub fn print_stats(results: &[CheckResult]) {
     let stats = StatsExporter::calculate_stats(results);
     print_statistics(&stats);
+}
+
+pub fn print_tld_stats(results: &[CheckResult]) {
+    let stats = StatsExporter::calculate_stats(results);
+    print_tld_statistics(&stats);
 }

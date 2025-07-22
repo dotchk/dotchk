@@ -27,24 +27,34 @@ tryxyz.io → AVAILABLE (41ms) ✓
 
 		<div class="use-case">
 			<h3>Brand Protection</h3>
-			<CommandBlock code={`# Check across TLD groups
-$ dotchk tld yourbrand --tech --business
+			<CommandBlock code={`# Check across TLD groups with stats
+$ dotchk tld yourbrand --tech --business --stats
 
-[Tech TLDs]
+[yourbrand]
 yourbrand.io → TAKEN (89ms)
 yourbrand.dev → AVAILABLE (42ms) ✓
 yourbrand.app → AVAILABLE (38ms) ✓
 yourbrand.tech → TAKEN (156ms)
 yourbrand.ai → TIMEOUT (3000ms) ⚠
-
-[Business TLDs]  
 yourbrand.com → TAKEN (45ms)
 yourbrand.biz → AVAILABLE (67ms) ✓
 yourbrand.company → AVAILABLE (44ms) ✓
 yourbrand.inc → TAKEN (51ms)
 
-✓ Found 4 available domains
-⚠ 1 domain timed out`} />
+╭─────────────────────────────────────╮
+│           Summary Stats             │
+├─────────────────────────────────────┤
+│ Total checked      : 9              │
+│ Available          : 4 (44.4%)      │
+│ Taken              : 4 (44.4%)      │
+│ Errors             : 1 (11.1%)      │
+│                                     │
+│ Registered in 4 of 9 TLDs (44%)     │
+│                                     │
+│ Avg response time  : 78ms           │
+│ Min response time  : 38ms           │
+│ Max response time  : 3000ms         │
+╰─────────────────────────────────────╯`} />
 		</div>
 
 		<div class="use-case">

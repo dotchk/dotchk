@@ -1,6 +1,6 @@
 use anyhow::Result;
+use dotchk::tld::{get_public_tlds, TLD_SERVERS};
 use dotchk::{CheckResult, Checker};
-use dotchk::tld::{TLD_SERVERS, get_public_tlds};
 use futures::StreamExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -14,10 +14,73 @@ const POPULAR_TLDS: &[&str] = &[
     "com", "net", "org", "io", "dev", "app", "co", "me", "ai", "xyz", "info", "biz",
 ];
 
+const TECH_TLDS: &[&str] = &[
+    "io", "dev", "app", "tech", "cloud", "ai", "digital", "online", "software", "systems", "codes",
+    "tools", "network", "web", "site", "website", "host", "server", "data", "api",
+];
+
+const BUSINESS_TLDS: &[&str] = &[
+    "com",
+    "biz",
+    "business",
+    "company",
+    "enterprises",
+    "ventures",
+    "holdings",
+    "partners",
+    "inc",
+    "llc",
+    "ltd",
+    "corp",
+    "group",
+    "solutions",
+    "services",
+    "consulting",
+    "agency",
+    "marketing",
+    "finance",
+    "capital",
+];
+
+const CREATIVE_TLDS: &[&str] = &[
+    "design",
+    "studio",
+    "art",
+    "media",
+    "digital",
+    "creative",
+    "works",
+    "productions",
+    "graphics",
+    "photo",
+    "photography",
+    "video",
+    "film",
+    "music",
+    "audio",
+    "gallery",
+];
+
+const RETAIL_TLDS: &[&str] = &[
+    "shop", "store", "buy", "sale", "deals", "market", "shopping", "boutique", "cheap", "bargains",
+    "discount", "promo", "coupon", "auction", "bid",
+];
+
+const COUNTRY_POPULAR: &[&str] = &[
+    "us", "uk", "de", "fr", "es", "it", "nl", "be", "ch", "at", "se", "no", "dk", "fi", "pl", "cz",
+    "gr", "pt", "ie", "ca", "au", "nz", "jp", "kr", "cn", "in", "sg", "hk", "my", "th", "id", "ph",
+    "vn", "br", "mx", "ar", "cl", "co", "za", "eg", "ae", "il",
+];
+
 #[allow(clippy::too_many_arguments)]
 pub async fn check_tlds(
     domains: Vec<String>,
     popular: bool,
+    tech: bool,
+    business: bool,
+    creative: bool,
+    retail: bool,
+    country: bool,
     tlds: Option<Vec<String>>,
     all: bool,
     parallel: usize,
@@ -27,7 +90,9 @@ pub async fn check_tlds(
     show_stats: bool,
 ) -> Result<()> {
     // Determine which TLDs to check
-    let tlds_to_check = determine_tlds(popular, tlds, all);
+    let tlds_to_check = determine_tlds(
+        popular, tech, business, creative, retail, country, tlds, all,
+    );
 
     // Generate domain combinations
     let domains_to_check = generate_domain_combinations(&domains, &tlds_to_check);
@@ -74,21 +139,83 @@ pub async fn check_tlds(
     Ok(())
 }
 
-fn determine_tlds(popular: bool, tlds: Option<Vec<String>>, all: bool) -> Vec<String> {
+#[allow(clippy::too_many_arguments)]
+fn determine_tlds(
+    popular: bool,
+    tech: bool,
+    business: bool,
+    creative: bool,
+    retail: bool,
+    country: bool,
+    tlds: Option<Vec<String>>,
+    all: bool,
+) -> Vec<String> {
+    use std::collections::HashSet;
+
     if all {
         let public_tlds = get_public_tlds();
         print_info(&format!("Using {} public TLDs (excluding private, adult, gambling, religious, and non-ASCII TLDs)", public_tlds.len()));
         public_tlds.into_iter().map(|s| s.to_string()).collect()
-    } else if popular {
-        print_info("Using popular TLDs");
-        POPULAR_TLDS.iter().map(|&s| s.to_string()).collect()
     } else if let Some(tlds) = tlds {
         print_info(&format!("Using {} specified TLDs", tlds.len()));
         tlds
     } else {
-        // Default to popular TLDs if nothing specified
-        print_info("No TLDs specified, using popular TLDs");
-        POPULAR_TLDS[..8].iter().map(|&s| s.to_string()).collect()
+        // Collect TLDs based on selected groups
+        let mut selected_tlds = HashSet::new();
+        let mut groups = Vec::new();
+
+        if popular {
+            groups.push("popular");
+            for &tld in POPULAR_TLDS {
+                selected_tlds.insert(tld);
+            }
+        }
+        if tech {
+            groups.push("tech");
+            for &tld in TECH_TLDS {
+                selected_tlds.insert(tld);
+            }
+        }
+        if business {
+            groups.push("business");
+            for &tld in BUSINESS_TLDS {
+                selected_tlds.insert(tld);
+            }
+        }
+        if creative {
+            groups.push("creative");
+            for &tld in CREATIVE_TLDS {
+                selected_tlds.insert(tld);
+            }
+        }
+        if retail {
+            groups.push("retail");
+            for &tld in RETAIL_TLDS {
+                selected_tlds.insert(tld);
+            }
+        }
+        if country {
+            groups.push("country");
+            for &tld in COUNTRY_POPULAR {
+                selected_tlds.insert(tld);
+            }
+        }
+
+        if groups.is_empty() {
+            // Default to popular TLDs if nothing specified
+            print_info("No TLDs specified, using popular TLDs");
+            POPULAR_TLDS.iter().map(|&s| s.to_string()).collect()
+        } else {
+            print_info(&format!(
+                "Using {} TLDs from groups: {}",
+                selected_tlds.len(),
+                groups.join(", ")
+            ));
+            let mut result: Vec<String> =
+                selected_tlds.into_iter().map(|s| s.to_string()).collect();
+            result.sort(); // Sort for consistent output
+            result
+        }
     }
 }
 

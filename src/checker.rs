@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Semaphore;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckResult {
@@ -37,7 +37,7 @@ impl Default for CheckerBuilder {
     fn default() -> Self {
         Self {
             max_parallel: 100,
-            timeout_ms: 3000,
+            timeout_ms: 500,
             cache_ttl: Duration::from_secs(300),
         }
     }
@@ -61,6 +61,9 @@ impl CheckerBuilder {
 
     pub async fn build(self) -> Result<Checker, DomainCheckerError> {
         let client = PipelinedDnsClient::new("0.0.0.0:0", self.cache_ttl).await?;
+
+        // Don't pre-resolve all nameservers at startup - it's too slow
+        // They'll be resolved on-demand and cached
 
         Ok(Checker {
             dns_client: Arc::new(client),
@@ -115,6 +118,7 @@ impl Checker {
     }
 
     async fn check_domain_internal(&self, domain: &str) -> Result<bool, DomainCheckerError> {
+        debug!("Starting check for domain: {}", domain);
         if !is_valid_domain(domain) {
             debug!("Domain {} failed validation", domain);
             return Err(DomainCheckerError::InvalidDomain(domain.to_string()));
@@ -122,33 +126,106 @@ impl Checker {
 
         let tld_info = get_tld_info(domain)
             .ok_or_else(|| DomainCheckerError::UnsupportedTld(extract_tld(domain)))?;
+        debug!(
+            "Got TLD info for {}: {} servers",
+            domain,
+            tld_info.servers.len()
+        );
 
-        let _permit = self
-            .semaphore
-            .acquire()
-            .await
-            .map_err(|_| DomainCheckerError::Timeout)?;
+        debug!("Acquiring semaphore permit for {}", domain);
+        let _permit = self.semaphore.acquire().await.map_err(|_| {
+            warn!("Semaphore acquire failed for {}", domain);
+            DomainCheckerError::Timeout
+        })?;
+        debug!("Acquired semaphore permit for {}", domain);
 
-        let timeout = self.timeout_ms.min(tld_info.timeout_ms);
+        // Use the TLD's timeout for each individual server query
+        let per_server_timeout = tld_info.timeout_ms;
+        debug!(
+            "Checking {} with {} servers, per-server timeout {}ms",
+            domain,
+            tld_info.servers.len(),
+            per_server_timeout
+        );
 
-        for (i, server) in tld_info.servers.iter().enumerate() {
-            match self.dns_client.query_ns(domain, server, timeout).await {
-                Ok(has_ns) => return Ok(!has_ns),
-                Err(DnsError::NameError) => return Ok(true),
-                Err(e) => {
-                    if i == tld_info.servers.len() - 1 {
-                        warn!("All servers failed for {}: {}", domain, e);
-                        return Err(e.into());
-                    }
-                    debug!(
-                        "Server {} failed for {}: {}, trying next",
-                        server, domain, e
+        // The servers are already pre-resolved IPs, so we can use them directly
+        // If there are no servers configured, fall back to local resolver
+        if tld_info.servers.is_empty() {
+            info!(
+                "No authoritative servers configured for {}, falling back to local resolver",
+                domain
+            );
+            match self.dns_client.query_local_resolver(domain).await {
+                Ok(has_records) => {
+                    info!(
+                        "Local resolver query for {} succeeded: available={}",
+                        domain, !has_records
                     );
+                    return Ok(!has_records);
+                }
+                Err(local_err) => {
+                    warn!("Local resolver also failed for {}: {:?}", domain, local_err);
+                    return Err(DomainCheckerError::Timeout);
                 }
             }
         }
 
-        Err(DomainCheckerError::Timeout)
+        // Try the pre-resolved IP addresses (already limited to 3 by update_tlds.py)
+        for (i, server_ip) in tld_info.servers.iter().enumerate() {
+            debug!(
+                "Trying server {} ({}/{}) for {}",
+                server_ip,
+                i + 1,
+                tld_info.servers.len(),
+                domain
+            );
+            match self
+                .dns_client
+                .query_ns(domain, server_ip, per_server_timeout)
+                .await
+            {
+                Ok(has_ns) => {
+                    debug!(
+                        "Server {} succeeded for {}: has_ns={}",
+                        server_ip, domain, has_ns
+                    );
+                    return Ok(!has_ns);
+                }
+                Err(DnsError::NameError) => {
+                    debug!("Server {} returned NXDOMAIN for {}", server_ip, domain);
+                    return Ok(true);
+                }
+                Err(e) => {
+                    debug!("Server {} failed for {}: {:?}", server_ip, domain, e);
+                    if i == tld_info.servers.len() - 1 {
+                        warn!(
+                            "All {} authoritative servers failed for {}: last error was {:?}",
+                            tld_info.servers.len(),
+                            domain,
+                            e
+                        );
+                        // All authoritative servers failed, try local resolver as fallback
+                        info!("Falling back to local resolver for {}", domain);
+                        match self.dns_client.query_local_resolver(domain).await {
+                            Ok(has_records) => {
+                                info!(
+                                    "Local resolver query for {} succeeded: available={}",
+                                    domain, !has_records
+                                );
+                                return Ok(!has_records);
+                            }
+                            Err(local_err) => {
+                                warn!("Local resolver also failed for {}: {:?}", domain, local_err);
+                                return Err(e.into());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // This can happen if the TLD has no servers configured
+        Err(DomainCheckerError::UnsupportedTld(extract_tld(domain)))
     }
 
     pub fn check_stream(&self, domains: Vec<String>) -> impl Stream<Item = CheckResult> + '_ {
@@ -164,97 +241,32 @@ impl Checker {
     }
 
     pub async fn check_batch(&self, domains: Vec<String>) -> Vec<CheckResult> {
-        let mut results = Vec::with_capacity(domains.len());
+        // For now, use individual checks to ensure proper fallback logic
+        // This is less efficient but ensures consistency with server fallback and local resolver
+        let futures: Vec<_> = domains
+            .into_iter()
+            .map(|domain| {
+                let checker = self.clone();
+                async move { checker.check(&domain).await }
+            })
+            .collect();
 
-        // Group domains by TLD for more efficient batching
-        let mut domains_by_tld: std::collections::HashMap<String, Vec<(usize, String)>> =
-            std::collections::HashMap::new();
+        // Process all checks concurrently with controlled parallelism
+        stream::iter(futures)
+            .buffer_unordered(self.max_parallel)
+            .collect()
+            .await
+    }
+}
 
-        for (idx, domain) in domains.iter().enumerate() {
-            let domain_lower = domain.to_lowercase();
-
-            // First check if domain is valid
-            if !is_valid_domain(&domain_lower) {
-                results.push((
-                    idx,
-                    CheckResult {
-                        domain: domain.clone(),
-                        available: false,
-                        response_time_ms: 0,
-                        checked_at: Utc::now(),
-                        error: Some("Invalid domain format".to_string()),
-                    },
-                ));
-                continue;
-            }
-
-            if let Some(_tld_info) = get_tld_info(&domain_lower) {
-                let tld = extract_tld(&domain_lower);
-                domains_by_tld
-                    .entry(tld)
-                    .or_default()
-                    .push((idx, domain_lower));
-            } else {
-                results.push((
-                    idx,
-                    CheckResult {
-                        domain: domain.clone(),
-                        available: false,
-                        response_time_ms: 0,
-                        checked_at: Utc::now(),
-                        error: Some(format!("Unsupported TLD: {}", extract_tld(&domain_lower))),
-                    },
-                ));
-            }
+impl Clone for Checker {
+    fn clone(&self) -> Self {
+        Self {
+            dns_client: self.dns_client.clone(),
+            max_parallel: self.max_parallel,
+            semaphore: Arc::new(Semaphore::new(self.max_parallel)),
+            timeout_ms: self.timeout_ms,
         }
-
-        // Process each TLD group
-        for (tld, domain_list) in domains_by_tld {
-            if let Some(tld_info) = get_tld_info(&format!("example.{tld}")) {
-                let timeout = self.timeout_ms.min(tld_info.timeout_ms);
-
-                // Prepare batch queries for primary server
-                let batch_queries: Vec<_> = domain_list
-                    .iter()
-                    .map(|(_, domain)| (domain.clone(), tld_info.servers[0].to_string(), timeout))
-                    .collect();
-
-                let start = Instant::now();
-                let batch_results = self.dns_client.query_ns_batch(batch_queries).await;
-                let elapsed = start.elapsed().as_millis() as u32;
-
-                for ((idx, domain), result) in domain_list.iter().zip(batch_results) {
-                    let check_result = match result {
-                        Ok(has_ns) => CheckResult {
-                            domain: domain.clone(),
-                            available: !has_ns,
-                            response_time_ms: elapsed,
-                            checked_at: Utc::now(),
-                            error: None,
-                        },
-                        Err(DnsError::NameError) => CheckResult {
-                            domain: domain.clone(),
-                            available: true,
-                            response_time_ms: elapsed,
-                            checked_at: Utc::now(),
-                            error: None,
-                        },
-                        Err(e) => CheckResult {
-                            domain: domain.clone(),
-                            available: false,
-                            response_time_ms: elapsed,
-                            checked_at: Utc::now(),
-                            error: Some(e.to_string()),
-                        },
-                    };
-                    results.push((*idx, check_result));
-                }
-            }
-        }
-
-        // Sort results back to original order
-        results.sort_by_key(|(idx, _)| *idx);
-        results.into_iter().map(|(_, result)| result).collect()
     }
 }
 
@@ -289,7 +301,12 @@ fn is_valid_domain(domain: &str) -> bool {
 }
 
 fn extract_tld(domain: &str) -> String {
-    domain.split('.').next_back().unwrap_or("").to_string()
+    domain
+        .split('.')
+        .next_back()
+        .filter(|tld| !tld.is_empty())
+        .unwrap_or("unknown")
+        .to_string()
 }
 
 #[cfg(test)]

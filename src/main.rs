@@ -75,7 +75,7 @@ enum Commands {
         parallel: usize,
 
         /// Query timeout in milliseconds (increase for slow TLDs)
-        #[arg(long, default_value = "3000")]
+        #[arg(long, default_value = "500")]
         timeout: u64,
 
         /// Export results to CSV file
@@ -190,9 +190,14 @@ EXAMPLES:
         about = "Check domain availability across multiple TLDs",
         long_about = "Check if a domain name is available across different top-level domains (TLDs).",
         after_help = r#"TLD OPTIONS:
-    --popular  : com, net, org, io, dev, app, co, me, ai, xyz, info, biz
+    --popular  : com, net, org, io, dev, app, co, me, ai, xyz, info, biz (12 TLDs)
+    --tech     : io, dev, app, tech, cloud, ai, digital, software, etc. (20 TLDs)
+    --business : com, biz, business, company, enterprises, corp, inc, etc. (20 TLDs)
+    --creative : design, studio, art, media, photography, video, etc. (16 TLDs)
+    --retail   : shop, store, buy, sale, market, boutique, etc. (15 TLDs)
+    --country  : us, uk, de, fr, ca, au, jp, br, etc. (42 popular countries)
     --tlds     : Specify custom TLDs to check
-    --all      : Check all 1,440+ supported TLDs (may take considerable time)
+    --all      : Check all 1,080+ public TLDs (excludes private/adult/gambling)
     
     Default: If no option specified, checks popular TLDs
 
@@ -200,11 +205,17 @@ EXAMPLES:
     # Check popular TLDs for your brand
     domain-checker tld mybrand --popular
     
+    # Check tech-related TLDs
+    domain-checker tld startup --tech
+    
+    # Check business TLDs
+    domain-checker tld company --business
+    
+    # Check multiple groups (combine flags)
+    domain-checker tld mybrand --tech --business
+    
     # Check specific TLDs
     domain-checker tld startup --tlds com,io,dev,app
-    
-    # Check multiple names across TLDs
-    domain-checker tld mycompany mybrand myproduct --tlds com,net,org
     
     # Find only available domains
     domain-checker tld brandname --popular --available-only
@@ -220,6 +231,26 @@ EXAMPLES:
         #[arg(long, conflicts_with = "tlds", conflicts_with = "all")]
         popular: bool,
 
+        /// Check tech-related TLDs (io, dev, app, tech, cloud, ai, digital, software, etc.)
+        #[arg(long, conflicts_with = "tlds", conflicts_with = "all")]
+        tech: bool,
+
+        /// Check business TLDs (com, biz, business, company, enterprises, corp, inc, etc.)
+        #[arg(long, conflicts_with = "tlds", conflicts_with = "all")]
+        business: bool,
+
+        /// Check creative TLDs (design, studio, art, media, photography, video, etc.)
+        #[arg(long, conflicts_with = "tlds", conflicts_with = "all")]
+        creative: bool,
+
+        /// Check retail/shopping TLDs (shop, store, buy, sale, market, boutique, etc.)
+        #[arg(long, conflicts_with = "tlds", conflicts_with = "all")]
+        retail: bool,
+
+        /// Check popular country TLDs (us, uk, de, fr, ca, au, jp, br, etc.)
+        #[arg(long, conflicts_with = "tlds", conflicts_with = "all")]
+        country: bool,
+
         /// Specific TLDs to check (comma-separated, e.g., com,io,dev)
         #[arg(
             long,
@@ -234,7 +265,7 @@ EXAMPLES:
         all: bool,
 
         /// Maximum parallel queries
-        #[arg(long, default_value = "100")]
+        #[arg(long, default_value = "200")]
         parallel: usize,
 
         /// Query timeout in milliseconds
@@ -299,12 +330,12 @@ async fn main() -> Result<()> {
 
                 // Handle patterns first (they show only available domains)
                 for pattern in patterns {
-                    cli::check_pattern(pattern, Some(10000), 100, 1000, true, None, false).await?;
+                    cli::check_pattern(pattern, Some(10000), 100, 500, true, None, false).await?;
                 }
 
                 // Then handle regular domains
                 if !regular_domains.is_empty() {
-                    cli::check_domains(regular_domains, 100, 1000, false, None).await?;
+                    cli::check_domains(regular_domains, 100, 5000, false, None).await?;
                 }
             } else {
                 // No domains and no subcommand, show help
@@ -345,6 +376,11 @@ async fn main() -> Result<()> {
         Some(Commands::Tld {
             domains,
             popular,
+            tech,
+            business,
+            creative,
+            retail,
+            country,
             tlds,
             all,
             parallel,
@@ -356,6 +392,11 @@ async fn main() -> Result<()> {
             cli::check_tlds(
                 domains,
                 popular,
+                tech,
+                business,
+                creative,
+                retail,
+                country,
                 tlds,
                 all,
                 parallel,

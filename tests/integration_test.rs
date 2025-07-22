@@ -302,9 +302,23 @@ async fn test_tld_checking_multiple_domains() {
 
     assert_eq!(results.len(), tlds.len());
 
-    for (i, result) in results.iter().enumerate() {
-        assert_eq!(result.domain, domains[i]);
+    // Create a set of expected domains for order-independent comparison
+    let expected_domains: std::collections::HashSet<String> = domains.iter().cloned().collect();
+    let result_domains: std::collections::HashSet<String> =
+        results.iter().map(|r| r.domain.clone()).collect();
+
+    assert_eq!(
+        expected_domains, result_domains,
+        "All domains should be checked"
+    );
+
+    // Verify each result has valid data
+    for result in &results {
         assert!(result.checked_at.timestamp() > 0);
+        assert!(
+            domains.contains(&result.domain),
+            "Result domain should be in the input list"
+        );
         println!(
             "TLD check {}: available={}, error={:?}",
             result.domain, result.available, result.error
@@ -415,9 +429,23 @@ async fn test_alternation_domain_checking() {
 
     assert_eq!(results.len(), 9);
 
-    // Verify all domains were checked
-    for (i, result) in results.iter().enumerate() {
-        assert_eq!(result.domain, domains[i]);
+    // Create sets for order-independent comparison
+    let expected_domains: std::collections::HashSet<String> = domains.iter().cloned().collect();
+    let result_domains: std::collections::HashSet<String> =
+        results.iter().map(|r| r.domain.clone()).collect();
+
+    assert_eq!(
+        expected_domains, result_domains,
+        "All generated domains should be checked"
+    );
+
+    // Verify all domains were checked with valid data
+    for result in &results {
+        assert!(
+            domains.contains(&result.domain),
+            "Result domain should be in the generated list"
+        );
+        assert!(result.checked_at.timestamp() > 0);
         println!(
             "Alternation check {}: available={}, error={:?}, time={}ms",
             result.domain, result.available, result.error, result.response_time_ms

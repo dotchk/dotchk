@@ -1,6 +1,6 @@
 use crate::dns_batch::BatchDnsSocket;
 use dashmap::DashMap;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -49,7 +49,7 @@ pub struct PipelinedDnsClient {
 
 struct QueryRequest {
     domain: String,
-    server: String,
+    server: String, // Already an IP address
     timeout_ms: u64,
     response_tx: oneshot::Sender<Result<bool, DnsError>>,
 }
@@ -176,6 +176,58 @@ impl PipelinedDnsClient {
 
         results
     }
+
+    /// Query local resolver for a domain
+    /// This is used as a fallback when all authoritative servers fail
+    pub async fn query_local_resolver(&self, domain: &str) -> Result<bool, DnsError> {
+        // Get system DNS resolvers
+        let resolvers = get_system_resolvers();
+        if resolvers.is_empty() {
+            warn!("No system resolvers found, using default 127.0.0.1");
+            return self.query_resolver_direct(domain, "127.0.0.1").await;
+        }
+
+        // Try each system resolver
+        for resolver in &resolvers {
+            debug!("Trying system resolver {} for {}", resolver, domain);
+            match self.query_resolver_direct(domain, resolver).await {
+                Ok(result) => {
+                    debug!("System resolver {} succeeded for {}", resolver, domain);
+                    return Ok(result);
+                }
+                Err(e) => {
+                    debug!(
+                        "System resolver {} failed for {}: {:?}",
+                        resolver, domain, e
+                    );
+                    continue;
+                }
+            }
+        }
+
+        warn!("All system resolvers failed for {}", domain);
+        Err(DnsError::ServerFailure)
+    }
+
+    /// Query a specific resolver directly
+    async fn query_resolver_direct(
+        &self,
+        domain: &str,
+        resolver_ip: &str,
+    ) -> Result<bool, DnsError> {
+        // Query the resolver using our existing DNS infrastructure
+        match timeout(
+            Duration::from_millis(2000),
+            self.query_ns(domain, resolver_ip, 2000),
+        )
+        .await
+        {
+            Ok(Ok(has_ns)) => Ok(has_ns),
+            Ok(Err(DnsError::NameError)) => Ok(true), // NXDOMAIN means available
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(DnsError::Timeout),
+        }
+    }
 }
 
 type BatchQueue = Vec<(Vec<u8>, SocketAddr, u16)>;
@@ -219,11 +271,20 @@ async fn process_queries_batch(
             response_tx,
         } = request;
 
-        // Generate unique transaction ID
-        let tx_id = transaction_id.fetch_add(1, Ordering::Relaxed);
-        if tx_id == 0 {
-            transaction_id.store(1, Ordering::Relaxed);
-        }
+        // Generate unique transaction ID with atomic wraparound
+        let tx_id = loop {
+            let current = transaction_id.load(Ordering::Relaxed);
+            let next = if current == u16::MAX { 1 } else { current + 1 };
+            match transaction_id.compare_exchange_weak(
+                current,
+                next,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break current,
+                Err(_) => continue, // Retry if another thread modified it
+            }
+        };
 
         // Build DNS query with unique transaction ID
         let query = build_ns_query(&domain, tx_id);
@@ -232,7 +293,7 @@ async fn process_queries_batch(
             continue;
         }
 
-        // Resolve server address
+        // Resolve the server IP to a socket address
         let server_addr = match resolve_server_addr(&server) {
             Ok(addr) => addr,
             Err(e) => {
@@ -380,24 +441,107 @@ async fn check_timeouts(pending_queries: Arc<DashMap<u16, PendingQuery>>) {
 }
 
 fn resolve_server_addr(server: &str) -> Result<SocketAddr, DnsError> {
-    // Try to parse as IP address first
-    if let Ok(addr) = format!("{server}:53").parse() {
-        return Ok(addr);
-    }
+    // Since servers are already IPs, just parse them directly
+    // IPv6 addresses need to be wrapped in brackets
+    let addr_str = if server.contains(':') {
+        format!("[{server}]:53")
+    } else {
+        format!("{server}:53")
+    };
 
-    // If not an IP, resolve hostname
-    let addrs_iter = format!("{server}:53").to_socket_addrs().map_err(|e| {
-        warn!("Failed to resolve server hostname {}: {}", server, e);
+    addr_str.parse().map_err(|e| {
+        warn!("Failed to parse server IP {}: {}", server, e);
         DnsError::InvalidResponse
-    })?;
+    })
+}
 
-    let addrs: Vec<SocketAddr> = addrs_iter.collect();
-    if addrs.is_empty() {
-        warn!("No addresses found for hostname: {}", server);
-        return Err(DnsError::InvalidResponse);
+/// Get system DNS resolvers cross-platform
+fn get_system_resolvers() -> Vec<String> {
+    let mut resolvers = Vec::new();
+
+    // Platform-specific DNS resolver detection
+    #[cfg(unix)]
+    {
+        use resolv_conf::Config;
+
+        if let Ok(contents) = std::fs::read_to_string("/etc/resolv.conf") {
+            if let Ok(config) = Config::parse(&contents) {
+                // Add all nameservers from the system configuration
+                for ns in config.nameservers {
+                    match ns {
+                        resolv_conf::ScopedIp::V4(addr) => {
+                            resolvers.push(addr.to_string());
+                        }
+                        resolv_conf::ScopedIp::V6(addr, _) => {
+                            resolvers.push(addr.to_string());
+                        }
+                    }
+                }
+                debug!(
+                    "Found {} system resolvers from resolv.conf",
+                    resolvers.len()
+                );
+            } else {
+                debug!("Failed to parse /etc/resolv.conf");
+            }
+        } else {
+            debug!("Failed to read /etc/resolv.conf");
+        }
     }
 
-    Ok(addrs[0])
+    // Windows DNS resolver detection using ipconfig
+    #[cfg(windows)]
+    {
+        use ipconfig::get_adapters;
+
+        match get_adapters() {
+            Ok(adapters) => {
+                for adapter in adapters {
+                    // Skip inactive adapters
+                    if adapter.oper_status() != ipconfig::OperStatus::IfOperStatusUp {
+                        continue;
+                    }
+
+                    // Add DNS servers from this adapter
+                    for dns in adapter.dns_servers() {
+                        let ip_str = dns.to_string();
+                        if !resolvers.contains(&ip_str) {
+                            resolvers.push(ip_str);
+                        }
+                    }
+                }
+                debug!(
+                    "Found {} DNS servers from Windows network adapters",
+                    resolvers.len()
+                );
+            }
+            Err(e) => {
+                debug!("Failed to get Windows network adapters: {}", e);
+            }
+        }
+    }
+
+    // macOS-specific: Also check scutil if resolv.conf doesn't have all info
+    #[cfg(target_os = "macos")]
+    {
+        // macOS sometimes has additional DNS info in System Configuration
+        // For now, the Unix path above should work for most cases
+    }
+
+    // If no resolvers found, add common defaults
+    if resolvers.is_empty() {
+        debug!("No system resolvers found, using defaults");
+        resolvers.push("127.0.0.1".to_string()); // Local resolver
+        resolvers.push("8.8.8.8".to_string()); // Google DNS
+        resolvers.push("1.1.1.1".to_string()); // Cloudflare DNS
+    }
+
+    // Remove duplicates while preserving order
+    let mut seen = std::collections::HashSet::new();
+    resolvers.retain(|ip| seen.insert(ip.clone()));
+
+    debug!("Using DNS resolvers: {:?}", resolvers);
+    resolvers
 }
 
 fn build_ns_query(domain: &str, transaction_id: u16) -> Vec<u8> {
@@ -518,5 +662,35 @@ mod tests {
         response[3] = 0x03; // NXDOMAIN
         let result = parse_ns_response(&response).unwrap();
         assert!(!result);
+    }
+
+    #[test]
+    fn test_resolve_server_addr_ipv4() {
+        let result = resolve_server_addr("192.168.1.1");
+        assert!(result.is_ok());
+        let addr = result.unwrap();
+        assert_eq!(addr.to_string(), "192.168.1.1:53");
+    }
+
+    #[test]
+    fn test_resolve_server_addr_ipv6() {
+        let result = resolve_server_addr("2001:db8::1");
+        assert!(result.is_ok());
+        let addr = result.unwrap();
+        assert_eq!(addr.to_string(), "[2001:db8::1]:53");
+    }
+
+    #[test]
+    fn test_resolve_server_addr_ipv6_full() {
+        let result = resolve_server_addr("2001:0db8:0000:0000:0000:0000:0000:0001");
+        assert!(result.is_ok());
+        let addr = result.unwrap();
+        assert_eq!(addr.to_string(), "[2001:db8::1]:53");
+    }
+
+    #[test]
+    fn test_resolve_server_addr_invalid() {
+        let result = resolve_server_addr("not-an-ip");
+        assert!(result.is_err());
     }
 }

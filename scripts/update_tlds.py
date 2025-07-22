@@ -18,6 +18,10 @@ import sys
 from collections import defaultdict
 from datetime import datetime
 import os
+import socket
+import random
+import concurrent.futures
+import time
 
 # URL for the IANA root zone file
 ROOT_ZONE_URL = "https://www.internic.net/domain/root.zone"
@@ -565,19 +569,94 @@ def parse_root_zone(content):
     
     return dict(tlds)
 
+def resolve_nameserver(nameserver, timeout=5):
+    """Resolve a nameserver hostname to IP addresses."""
+    try:
+        # Get all IP addresses (both IPv4 and IPv6)
+        results = socket.getaddrinfo(nameserver, 53, proto=socket.IPPROTO_UDP)
+        ips = []
+        for result in results:
+            ip = result[4][0]
+            # Prefer IPv4 addresses for better compatibility
+            if ':' not in ip:  # IPv4
+                ips.insert(0, ip)
+            else:  # IPv6
+                ips.append(ip)
+        return ips[:3]  # Return up to 3 IPs
+    except (socket.gaierror, socket.timeout):
+        return []
+
+def resolve_all_nameservers(tlds):
+    """Resolve all nameserver hostnames to IP addresses."""
+    print(f"\nResolving nameserver IPs...")
+    
+    # Collect all unique nameservers
+    all_nameservers = set()
+    for ns_set in tlds.values():
+        all_nameservers.update(ns_set)
+    
+    print(f"Total unique nameservers to resolve: {len(all_nameservers)}")
+    
+    # Resolve nameservers in parallel
+    nameserver_ips = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        future_to_ns = {executor.submit(resolve_nameserver, ns): ns for ns in all_nameservers}
+        
+        completed = 0
+        for future in concurrent.futures.as_completed(future_to_ns):
+            ns = future_to_ns[future]
+            try:
+                ips = future.result()
+                if ips:
+                    nameserver_ips[ns] = ips
+                else:
+                    print(f"  Warning: Could not resolve {ns}")
+            except Exception as e:
+                print(f"  Error resolving {ns}: {e}")
+            
+            completed += 1
+            if completed % 100 == 0:
+                print(f"  Resolved {completed}/{len(all_nameservers)} nameservers...")
+    
+    print(f"Successfully resolved {len(nameserver_ips)} nameservers")
+    
+    # Convert TLD nameservers to IPs
+    tld_ips = {}
+    for tld, nameservers in tlds.items():
+        ips = []
+        for ns in nameservers:
+            if ns in nameserver_ips:
+                ips.extend(nameserver_ips[ns])
+        
+        if ips:
+            # Randomly select up to 3 IPs for each TLD
+            random.shuffle(ips)
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_ips = []
+            for ip in ips:
+                if ip not in seen:
+                    seen.add(ip)
+                    unique_ips.append(ip)
+            tld_ips[tld] = unique_ips[:3]
+        else:
+            print(f"  Warning: No IPs resolved for TLD .{tld}")
+    
+    return tld_ips
+
 def determine_timeout(tld):
     """Determine appropriate timeout for a TLD based on its type and location."""
     tld = tld.lower()
     
-    # Common gTLDs and EU/NA ccTLDs get 3000ms (3 seconds)
+    # Common gTLDs and EU/NA ccTLDs get 500ms (0.5 seconds)
     if tld in COMMON_GTLDS or tld in EU_NA_CCTLDS:
-        return 3000
-    # Asia-Pacific ccTLDs get 4000ms (4 seconds)
+        return 500
+    # Asia-Pacific ccTLDs get 750ms (0.75 seconds)
     elif tld in ASIA_PACIFIC_CCTLDS:
-        return 4000
-    # All others (Africa, South America, Middle East, etc.) get 5000ms (5 seconds)
+        return 750
+    # All others (Africa, South America, Middle East, etc.) get 1000ms (1 second)
     else:
-        return 5000
+        return 1000
 
 def is_excluded_tld(tld):
     """Check if a TLD should be excluded from default --all searches."""
@@ -608,22 +687,22 @@ def get_tld_categories(tld):
     
     return categories
 
-def generate_rust_code(tlds):
-    """Generate Rust code for the TLD module."""
-    print(f"Generating Rust code for {len(tlds)} TLDs...")
+def generate_rust_code(tld_ips):
+    """Generate Rust code for the TLD module with pre-resolved IPs."""
+    print(f"Generating Rust code for {len(tld_ips)} TLDs...")
     
     # Sort TLDs for consistent output
-    sorted_tlds = sorted(tlds.items())
+    sorted_tlds = sorted(tld_ips.items())
     
     # Separate TLDs into included and excluded
     included_tlds = []
     excluded_tlds = []
     
-    for tld, nameservers in sorted_tlds:
+    for tld, ips in sorted_tlds:
         if is_excluded_tld(tld):
-            excluded_tlds.append((tld, nameservers))
+            excluded_tlds.append((tld, ips))
         else:
-            included_tlds.append((tld, nameservers))
+            included_tlds.append((tld, ips))
     
     # Generate the Rust code
     rust_code = '''use phf::phf_map;
@@ -640,12 +719,9 @@ pub static TLD_SERVERS: phf::Map<&'static str, TldInfo> = phf_map! {
 '''
     
     # Add all TLDs with their metadata
-    for tld, nameservers in sorted_tlds:
-        # Sort nameservers for consistent output
-        sorted_ns = sorted(nameservers)
-        
-        # Format nameserver array
-        ns_array = ', '.join(f'"{ns}"' for ns in sorted_ns)
+    for tld, ips in sorted_tlds:
+        # Format IP array (already limited to 3 in resolve_all_nameservers)
+        ip_array = ', '.join(f'"{ip}"' for ip in ips)
         
         # Determine timeout
         timeout = determine_timeout(tld)
@@ -657,7 +733,7 @@ pub static TLD_SERVERS: phf::Map<&'static str, TldInfo> = phf_map! {
         
         # Add entry
         rust_code += f'''    "{tld}" => TldInfo {{
-        servers: &[{ns_array}],
+        servers: &[{ip_array}],
         timeout_ms: {timeout},
         excluded_from_all: {str(excluded).lower()},
         categories: &[{categories_array}],
@@ -805,26 +881,26 @@ def write_rust_file(content):
             print("Restored backup file")
         sys.exit(1)
 
-def print_statistics(tlds):
-    """Print statistics about the TLDs."""
+def print_statistics(tld_ips):
+    """Print statistics about the TLDs with resolved IPs."""
     print("\n=== TLD Statistics ===")
-    print(f"Total TLDs: {len(tlds)}")
+    print(f"Total TLDs: {len(tld_ips)}")
     
-    # Count by number of nameservers
-    ns_counts = defaultdict(int)
-    for tld, nameservers in tlds.items():
-        ns_counts[len(nameservers)] += 1
+    # Count by number of IPs
+    ip_counts = defaultdict(int)
+    for tld, ips in tld_ips.items():
+        ip_counts[len(ips)] += 1
     
-    print("\nTLDs by nameserver count:")
-    for count in sorted(ns_counts.keys(), reverse=True):
-        print(f"  {count} nameservers: {ns_counts[count]} TLDs")
+    print("\nTLDs by IP count:")
+    for count in sorted(ip_counts.keys(), reverse=True):
+        print(f"  {count} IPs: {ip_counts[count]} TLDs")
     
     # Count excluded TLDs
     excluded_count = 0
     excluded_by_category = defaultdict(int)
     included_count = 0
     
-    for tld in tlds:
+    for tld in tld_ips:
         if is_excluded_tld(tld):
             excluded_count += 1
             categories = get_tld_categories(tld)
@@ -843,15 +919,15 @@ def print_statistics(tlds):
     
     # Show some examples
     print("\nExample TLDs:")
-    examples = list(tlds.keys())[:10]
+    examples = list(tld_ips.keys())[:10]
     for tld in examples:
-        print(f"  .{tld}: {len(tlds[tld])} nameservers")
+        print(f"  .{tld}: {len(tld_ips[tld])} IPs")
     
     # Category counts
-    gtlds = sum(1 for tld in tlds if tld in COMMON_GTLDS)
-    eu_na = sum(1 for tld in tlds if tld in EU_NA_CCTLDS)
-    asia_pac = sum(1 for tld in tlds if tld in ASIA_PACIFIC_CCTLDS)
-    other = len(tlds) - gtlds - eu_na - asia_pac
+    gtlds = sum(1 for tld in tld_ips if tld in COMMON_GTLDS)
+    eu_na = sum(1 for tld in tld_ips if tld in EU_NA_CCTLDS)
+    asia_pac = sum(1 for tld in tld_ips if tld in ASIA_PACIFIC_CCTLDS)
+    other = len(tld_ips) - gtlds - eu_na - asia_pac
     
     print(f"\nTLD categories:")
     print(f"  Common gTLDs: {gtlds}")
@@ -871,14 +947,17 @@ def main():
     # Parse TLDs
     tlds = parse_root_zone(root_zone_content)
     
+    # Resolve nameservers to IPs
+    tld_ips = resolve_all_nameservers(tlds)
+    
     # Generate Rust code
-    rust_code = generate_rust_code(tlds)
+    rust_code = generate_rust_code(tld_ips)
     
     # Write to file
     write_rust_file(rust_code)
     
     # Print statistics
-    print_statistics(tlds)
+    print_statistics(tld_ips)
     
     print("\n✅ TLD update completed successfully!")
     print("\nNext steps:")

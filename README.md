@@ -1,6 +1,6 @@
 # dotchk
 
-A high-performance domain availability checker that helps you find the perfect domain name. Check thousands of domains per second across 1,440+ TLDs.
+A high-performance domain availability checker that helps you find the perfect domain name. Check thousands of domains per second across 1,080+ public TLDs.
 
 > **Important**: This tool checks NS (nameserver) records, not WHOIS. Domains registered without nameservers may show as "available". Always verify with WHOIS before purchasing.
 
@@ -20,7 +20,7 @@ A high-performance domain availability checker that helps you find the perfect d
 - **Fast** - Check 10,000+ domains per second
 - **Direct checking** - Just type `dotchk example.com`
 - **Pattern discovery** - Find available domains matching patterns
-- **1,440+ TLDs** - Comprehensive TLD support
+- **1,080+ TLDs** - Comprehensive public TLD support
 - **Bulk checking** - Process large lists efficiently
 - **Beautiful output** - Clean, colorful, and informative
 - **CSV export** - Export results for analysis
@@ -158,15 +158,38 @@ dotchk tld startup --tlds com,io,dev,app
 # Show only available TLDs
 dotchk tld mybrand --popular --available-only
 
-# Check ALL 1,440+ TLDs (comprehensive but slower)
+# Check ALL 1,080+ public TLDs (excludes private, adult, gambling TLDs)
 dotchk tld uniquename --all --available-only
 ```
 
-**Popular TLD Groups:**
-- **Tech**: io, dev, app, tech, cloud, ai, digital
-- **Business**: com, biz, business, company, enterprises
-- **Creative**: design, studio, art, media, digital
-- **Countries**: uk, de, fr, es, it, jp, au, ca
+**TLD Group Options:**
+```bash
+# Check tech-related TLDs
+dotchk tld mybrand --tech
+
+# Check business TLDs  
+dotchk tld mybrand --business
+
+# Check creative industry TLDs
+dotchk tld mybrand --creative
+
+# Check retail/shopping TLDs
+dotchk tld mybrand --retail
+
+# Check popular country TLDs
+dotchk tld mybrand --country
+
+# Combine multiple groups
+dotchk tld mybrand --tech --business --available-only
+```
+
+**TLD Groups:**
+- `--popular` - Most common TLDs (com, net, org, io, dev, app, co, me, ai, xyz, info, biz)
+- `--tech` - Technology TLDs (io, dev, app, tech, cloud, ai, digital, software, etc.)
+- `--business` - Business TLDs (com, biz, business, company, enterprises, corp, inc, etc.)
+- `--creative` - Creative industry TLDs (design, studio, art, media, photography, etc.)
+- `--retail` - E-commerce TLDs (shop, store, buy, sale, market, boutique, etc.)
+- `--country` - Popular country codes (us, uk, de, fr, ca, au, jp, br, etc.)
 
 ### 4. Bulk Checking
 
@@ -265,13 +288,15 @@ done
 ### Optimization Tips
 
 1. **Adjust parallelism based on your needs:**
-   - Small checks (<100 domains): `--parallel 100` (default)
+   - Small checks (<100 domains): `--parallel 100` (default for most commands)
+   - TLD checks: `--parallel 200` (default for `tld` command)
    - Medium checks (100-1000): `--parallel 200`
    - Large checks (1000+): `--parallel 500`
    - Massive checks: `--parallel 1000`
 
 2. **Timeout settings:**
-   - Default timeout: `3000ms` (3 seconds)
+   - Default timeout: `3000ms` (3 seconds) for most commands
+   - `check` command default: `500ms` (optimized for single domains)
    - Fast checks: `--timeout 1000` (for well-connected servers)
    - Slow/problematic TLDs: `--timeout 5000` or higher
 
@@ -299,9 +324,14 @@ done
 - `--limit N` - Maximum domains to generate
 
 ### TLD Options
-- `--popular` - Check popular TLDs only
+- `--popular` - Check popular TLDs (com, net, org, io, dev, app, co, me, ai, xyz, info, biz)
+- `--tech` - Check technology-related TLDs (20 TLDs)
+- `--business` - Check business TLDs (20 TLDs)
+- `--creative` - Check creative industry TLDs (16 TLDs)  
+- `--retail` - Check e-commerce/retail TLDs (15 TLDs)
+- `--country` - Check popular country code TLDs (42 countries)
 - `--tlds LIST` - Check specific TLDs (comma-separated)
-- `--all` - Check all 1,440+ TLDs
+- `--all` - Check all 1,080+ public TLDs (excludes private, adult, gambling, religious, and non-ASCII TLDs)
 
 ## CSV Export Format
 

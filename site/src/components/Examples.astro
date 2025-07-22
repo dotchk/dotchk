@@ -21,8 +21,11 @@ $ dotchk pattern "(ai|ml|deep|smart)[a-z]{2,4}.(ai|io)" --limit 150`} />
 			<CommandBlock code={`# Check typosquatting
 $ dotchk yourbrand.com yourband.com yourbran.com
 
+# Check across TLD groups
+$ dotchk tld yourbrand --tech --business --available-only
+
 # International domains
-$ dotchk tld yourbrand --tlds com,co.uk,de,fr,jp,cn`} />
+$ dotchk tld yourbrand --country --available-only`} />
 		</div>
 
 		<div class="use-case">
@@ -50,13 +53,13 @@ done`} />
 		<div class="use-case">
 			<h3>Integration</h3>
 			<CommandBlock code={`# Export to CSV
-$ dotchk pattern "[a-z]{4}.com" --export domains.csv
+$ dotchk pattern "[a-z]{4}.com" --output domains.csv
 
-# Pipe to other tools
-$ dotchk tld mybrand --all | grep AVAILABLE > available.txt
+# Check all public TLDs (1,080+)
+$ dotchk tld mybrand --all --available-only
 
-# Parallel processing
-$ cat patterns.txt | parallel -j 10 dotchk pattern {} --limit 100`} />
+# Combine multiple TLD groups
+$ dotchk tld startup --tech --creative --retail`} />
 		</div>
 	</div>
 </section>

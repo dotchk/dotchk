@@ -7,14 +7,14 @@ import SingleCommandBlock from './SingleCommandBlock.astro';
 	
 	<div class="commands-grid">
 		<div class="command-card">
-			<h3>check</h3>
+			<h3>Direct Check</h3>
 			<p>Direct domain availability checking</p>
-			<SingleCommandBlock command="dotchk check domain.com domain.net" />
+			<SingleCommandBlock command="dotchk domain.com domain.net" />
 			<div class="command-options">
 				<h4>Options:</h4>
 				<ul>
-					<li><code>--concurrent</code> - Number of parallel checks</li>
-					<li><code>--timeout</code> - DNS query timeout</li>
+					<li><code>--parallel</code> - Number of parallel checks (default: 100)</li>
+					<li><code>--timeout</code> - DNS query timeout (default: 500ms)</li>
 					<li><code>--quiet</code> - Minimal output</li>
 				</ul>
 			</div>
@@ -56,8 +56,13 @@ import SingleCommandBlock from './SingleCommandBlock.astro';
 			<div class="command-options">
 				<h4>Options:</h4>
 				<ul>
-					<li><code>--popular</code> - Check popular TLDs</li>
-					<li><code>--all</code> - Check all 1,440+ TLDs</li>
+					<li><code>--popular</code> - Popular TLDs (com, net, org, io, dev, etc.)</li>
+					<li><code>--tech</code> - Technology TLDs (io, dev, app, tech, cloud, ai, etc.)</li>
+					<li><code>--business</code> - Business TLDs (com, biz, company, inc, etc.)</li>
+					<li><code>--creative</code> - Creative TLDs (design, studio, art, media, etc.)</li>
+					<li><code>--retail</code> - E-commerce TLDs (shop, store, buy, sale, etc.)</li>
+					<li><code>--country</code> - Popular country codes (us, uk, de, fr, etc.)</li>
+					<li><code>--all</code> - Check all 1,080+ public TLDs</li>
 					<li><code>--tlds</code> - Custom TLD list</li>
 				</ul>
 			</div>

@@ -1,5 +1,6 @@
 use anyhow::Result;
-use dotchk::{tld::TLD_SERVERS, CheckResult, Checker};
+use dotchk::{CheckResult, Checker};
+use dotchk::tld::{TLD_SERVERS, get_public_tlds};
 use futures::StreamExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -75,8 +76,9 @@ pub async fn check_tlds(
 
 fn determine_tlds(popular: bool, tlds: Option<Vec<String>>, all: bool) -> Vec<String> {
     if all {
-        print_info(&format!("Using all {} available TLDs", TLD_SERVERS.len()));
-        TLD_SERVERS.keys().map(|&s| s.to_string()).collect()
+        let public_tlds = get_public_tlds();
+        print_info(&format!("Using {} public TLDs (excluding private, adult, gambling, religious, and non-ASCII TLDs)", public_tlds.len()));
+        public_tlds.into_iter().map(|s| s.to_string()).collect()
     } else if popular {
         print_info("Using popular TLDs");
         POPULAR_TLDS.iter().map(|&s| s.to_string()).collect()

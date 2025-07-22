@@ -75,7 +75,7 @@ enum Commands {
         parallel: usize,
 
         /// Query timeout in milliseconds (increase for slow TLDs)
-        #[arg(long, default_value = "1000")]
+        #[arg(long, default_value = "3000")]
         timeout: u64,
 
         /// Export results to CSV file
@@ -122,7 +122,7 @@ EXAMPLES:
         parallel: usize,
 
         /// Query timeout in milliseconds
-        #[arg(long, default_value = "1000")]
+        #[arg(long, default_value = "3000")]
         timeout: u64,
 
         /// Export results to CSV file
@@ -169,7 +169,7 @@ EXAMPLES:
         parallel: usize,
 
         /// Query timeout in milliseconds
-        #[arg(long, default_value = "1000")]
+        #[arg(long, default_value = "3000")]
         timeout: u64,
 
         /// Only show available domains
@@ -238,7 +238,7 @@ EXAMPLES:
         parallel: usize,
 
         /// Query timeout in milliseconds
-        #[arg(long, default_value = "1000")]
+        #[arg(long, default_value = "3000")]
         timeout: u64,
 
         /// Only show available domains

@@ -37,7 +37,7 @@ impl Default for CheckerBuilder {
     fn default() -> Self {
         Self {
             max_parallel: 100,
-            timeout_ms: 1000,
+            timeout_ms: 3000,
             cache_ttl: Duration::from_secs(300),
         }
     }

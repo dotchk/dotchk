@@ -271,9 +271,9 @@ done
    - Massive checks: `--parallel 1000`
 
 2. **Timeout settings:**
-   - Fast TLDs (.com, .net): `--timeout 1000` (default)
-   - International TLDs: `--timeout 3000`
-   - Slow/problematic TLDs: `--timeout 5000`
+   - Default timeout: `3000ms` (3 seconds)
+   - Fast checks: `--timeout 1000` (for well-connected servers)
+   - Slow/problematic TLDs: `--timeout 5000` or higher
 
 3. **Memory usage:**
    - The tool caches results in memory
@@ -288,7 +288,7 @@ done
 
 ### Performance Options
 - `--parallel N` - Number of concurrent checks (default: 100, max: 1000)
-- `--timeout MS` - Query timeout in milliseconds (default: 1000)
+- `--timeout MS` - Query timeout in milliseconds (default: 3000)
 
 ### Output Options
 - `--available-only` - Only show available domains
@@ -346,7 +346,7 @@ This tool checks NS (nameserver) records for speed. This means:
 - Always verify with WHOIS before purchasing
 
 **"Getting timeout errors"**
-- Increase timeout: `--timeout 3000`
+- Increase timeout: `--timeout 5000`
 - Reduce parallelism: `--parallel 50`
 - Check your internet connection
 
@@ -377,7 +377,7 @@ use domain_checker::{Checker, Pattern};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let checker = Checker::builder()
         .max_parallel(200)
-        .timeout_ms(2000)
+        .timeout_ms(3000)
         .build()
         .await?;
     

@@ -570,16 +570,25 @@ RUST_LOG=trace dotchk example.com
 
 ## Library Usage
 
-For developers who want to use this as a Rust library:
+For developers who want to use dotchk as a Rust library:
 
+Add to your `Cargo.toml`:
+```toml
+[dependencies]
+dotchk = "1.2"
+tokio = { version = "1", features = ["full"] }
+```
+
+Example usage:
 ```rust
-use domain_checker::{Checker, Pattern};
+use dotchk::{Checker, Pattern, CheckResult};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create a checker with custom settings
     let checker = Checker::builder()
         .max_parallel(200)
-        .timeout_ms(3000)
+        .timeout_ms(500)  // Default timeout
         .build()
         .await?;
     
@@ -594,11 +603,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let domains = pattern.generate(Some(100));
     let results = checker.check_batch(domains).await;
     
-    // Find available only
-    let available: Vec<_> = results
+    // Filter available domains
+    let available: Vec<CheckResult> = results
         .into_iter()
         .filter(|r| r.available && r.error.is_none())
         .collect();
+    
+    println!("Found {} available domains", available.len());
+    
+    // Export results to CSV
+    use dotchk::CsvExporter;
+    let exporter = CsvExporter::new("results.csv");
+    exporter.export(&available)?;
     
     Ok(())
 }

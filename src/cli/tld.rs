@@ -227,9 +227,10 @@ fn generate_domain_combinations(domains: &[String], tlds_to_check: &[String]) ->
         let base_domain = domain.split('.').next().unwrap_or(domain);
 
         for tld in tlds_to_check {
-            // Verify TLD is supported
-            if TLD_SERVERS.get(tld.as_str()).is_some() {
-                domains_to_check.push(format!("{base_domain}.{tld}"));
+            // Verify TLD is supported (normalize to lowercase for lookup)
+            let tld_lower = tld.to_lowercase();
+            if TLD_SERVERS.get(tld_lower.as_str()).is_some() {
+                domains_to_check.push(format!("{base_domain}.{tld_lower}"));
             } else {
                 eprintln!("Warning: TLD '{tld}' is not supported, skipping");
             }
@@ -252,8 +253,10 @@ fn print_grouped_results(
 
     for domain in domains {
         let base_domain = domain.split('.').next().unwrap_or(domain);
+        // Convert to lowercase for lookup since domain checking normalizes to lowercase
+        let base_domain_lower = base_domain.to_lowercase();
 
-        if let Some(domain_results) = grouped_results.get(base_domain) {
+        if let Some(domain_results) = grouped_results.get(&base_domain_lower) {
             let mut sorted_results = domain_results.clone();
             sorted_results.sort_by_key(|r| r.domain.clone());
 

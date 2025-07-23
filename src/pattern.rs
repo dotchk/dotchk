@@ -43,12 +43,13 @@ fn preprocess_pattern(pattern: &str) -> String {
             // Check if this dot is followed by a known TLD
             let remaining: String = chars[i + 1..].iter().collect();
 
-            // Check if the remaining string starts with a TLD
+            // Check if the remaining string starts with a TLD (case-insensitive)
             let mut found_tld = false;
+            let remaining_lower = remaining.to_lowercase();
             for tld in COMMON_TLDS.iter() {
                 // Check if it matches the TLD exactly or TLD followed by non-alphanumeric
-                if remaining == *tld
-                    || (remaining.starts_with(tld)
+                if remaining_lower == *tld
+                    || (remaining_lower.starts_with(tld)
                         && remaining
                             .chars()
                             .nth(tld.len())

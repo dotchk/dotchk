@@ -12,8 +12,8 @@ A high-performance domain availability checker that helps you find the perfect d
 - [Examples](#examples)
 - [Performance](#performance)
 - [Limitations](#limitations)
+- [Using with AI Coding Assistants](#using-with-ai-coding-assistants)
 - [Contributing](#contributing)
-- [License](#license)
 
 ## Features
 
@@ -380,12 +380,12 @@ dotchk pattern "[a-z]{3}.io" --limit 50 --stats
 Searching for pattern: [a-z]{3}.io
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 50/50
 
-aaa.io → TAKEN (89ms)
-aab.io → TAKEN (92ms)
-aac.io → TIMEOUT (3000ms) ⚠
 aad.io → AVAILABLE (45ms) ✓
-aae.io → ERROR: Invalid domain ⚠
-... (45 more results)
+afj.io → AVAILABLE (42ms) ✓
+agx.io → AVAILABLE (44ms) ✓
+... (5 more available)
+
+✓ Found 8 available domains (39 taken, 3 errors not shown)
 
 ╭─────────────────────────────────────╮
 │           Summary Stats             │
@@ -486,9 +486,9 @@ done
 Results are exported in this format:
 ```csv
 domain,available,response_time_ms,checked_at,error
-example.com,false,67,2024-03-20T10:30:45Z,
-mybrand.io,true,123,2024-03-20T10:30:45Z,
-invalid.xyz,false,0,2024-03-20T10:30:45Z,Unsupported TLD
+example.com,false,67,20245-07-20T10:30:45Z,
+mybrand.io,true,123,2025-07-20T10:30:45Z,
+invalid.xyz,false,0,2025-07-20T10:30:45Z,Unsupported TLD
 ```
 
 ## Limitations
@@ -525,11 +525,9 @@ This tool checks NS (nameserver) records for speed. This means:
 
 **Example of edge cases:**
 ```bash
-$ dotchk edge-cases.com newly-registered.io parked-domain.net
+$ dotchk data.dev
 
-edge-cases.com → AVAILABLE (45ms) ✓
-newly-registered.io → AVAILABLE (89ms) ✓  # May be false positive!
-parked-domain.net → AVAILABLE (67ms) ✓    # May be false positive!
+data.dev → AVAILABLE (67ms) ✓    # false positive!
 ```
 
 **"Getting timeout errors"**
@@ -569,7 +567,7 @@ For developers who want to use dotchk as a Rust library:
 Add to your `Cargo.toml`:
 ```toml
 [dependencies]
-dotchk = "1.3"
+dotchk = "1.4.0"
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -614,9 +612,152 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Contributing
+## Using with AI Coding Assistants
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Leverage AI coding assistants like Claude Code to supercharge your domain discovery process. Here are effective prompts and strategies:
+
+### Getting Started
+
+First, make sure your AI assistant understands the tool. **Start your AI coding assistant from within the dotchk repository folder** for best results:
+
+```bash
+# From the dotchk repo directory
+git clone https://github.com/dotchk/dotchk.git
+cd dotchk
+claude  # or your preferred AI tool
+
+# Initial setup prompt
+"Please review the README to learn how to use the domain availability checker dotchk 
+(I've already installed it), then help me find a good domain"
+
+# Or if you need installation too
+"Help me install and use dotchk to find available domains for my startup"
+
+# Quick context (if starting from elsewhere)
+"I have dotchk installed - it's a fast domain checker. Help me find available .ai domains"
+```
+
+### Quick Domain Search
+
+```bash
+# Basic availability check
+"Check if example.ai is available using dotchk"
+
+# Multiple domains
+"Check these domains: startup.ai, myapp.ai, cooltech.ai"
+```
+
+### Creative Domain Discovery
+
+```bash
+# Find domains for your startup
+"Help me find available .ai domains with 'brain' in them"
+"Find short, memorable .com domains for a fitness app"
+"Search for available domains combining 'smart' with tech words"
+
+# Pattern-based searches  
+"Find available 4-letter .io domains that sound like real words"
+"Search for domains matching pattern: (get|try|use)[word].com"
+```
+
+### Comprehensive Brand Search
+
+```bash
+# Check brand across TLDs
+"Check if 'mybrand' is available across all popular TLDs"
+"Find which TLDs have 'coolstartup' available"
+"Check mybrand across tech and business TLDs, show only available"
+```
+
+### Advanced Strategies
+
+```bash
+# Domain brainstorming
+"Generate 20 creative domain names for an AI writing tool and check availability"
+"Find available .ai domains related to deep learning that are under 10 characters"
+
+# Bulk operations
+"Create a list of potential domains for a green energy startup and check them all"
+"Check all variations of 'ecofriendly' with different prefixes and TLDs"
+
+# Investment research
+"Find available 3-letter .com domains"
+"Search for short, brandable domains in the .io space"
+```
+
+### Pro Tips for AI Assistants
+
+1. **Be specific about requirements:**
+   ```
+   "Find available .com domains that:
+    - Are 5-8 characters long
+    - Include 'tech' or 'smart'
+    - Are easy to pronounce"
+   ```
+
+2. **Request explanations:**
+   ```
+   "Explain why these domains might be valuable"
+   "What makes a domain name memorable?"
+   ```
+
+3. **Iterate on results:**
+   ```
+   "Those are taken, try variations with different prefixes"
+   "Make them shorter and more brandable"
+   ```
+
+4. **Combine with analysis:**
+   ```
+   "Check these domains and rank them by brandability"
+   "Which of these available domains would work best for a B2B SaaS?"
+   ```
+
+### Example Session
+
+```
+You: "I'm launching an AI education platform. Help me find a great .ai domain"
+
+AI: I'll help you find a great .ai domain for your education platform. Let me search for 
+    available options with education-related terms:
+
+    [Runs: dotchk pattern "(learn|edu|smart|brain|mind|teach|study)ai.ai"]
+    
+    Found these available:
+    - learnai.ai ✓
+    - smartai.ai ✓
+    - teachai.ai ✓
+
+    [Runs: dotchk pattern "ai(learn|academy|class|mentor|tutor).ai"]
+    
+    Also available:
+    - aiacademy.ai ✓
+    - aimentor.ai ✓
+    
+    My top recommendations:
+    1. aiacademy.ai - Clear education focus, professional
+    2. learnai.ai - Simple, memorable, action-oriented  
+    3. aimentor.ai - Personal touch, suggests guidance
+
+You: "I like aiacademy but want something shorter"
+
+AI: [Runs: dotchk pattern "[a-z]{2,4}(ai|learn).ai" --limit 20]
+    
+    Here are shorter options:
+    - edai.ai ✓ (education + AI)
+    - mlai.ai ✓ (machine learning + AI)
+    - aied.ai ✓ (AI + education)
+```
+
+### Integration Tips
+
+- **Install dotchk first:** Make sure the AI assistant knows dotchk is installed
+- **Provide context:** Share your industry, target audience, and preferences  
+- **Iterate quickly:** AI assistants can check hundreds of variations in seconds
+- **Save results:** Ask the AI to export promising finds to a CSV file
+- **Verify availability:** Remember to double-check with WHOIS before purchasing
+
+## Contributing
 
 ### Quick Contribution Guide
 1. Fork the repository
@@ -624,17 +765,6 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 3. Make your changes
 4. Run tests: `cargo test`
 5. Submit a pull request
-
-## License
-
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
-
-- **Free for personal use, research, education, and non-profits**
-- **Commercial use requires a license**
-
-For commercial licensing, please contact: [your-email@example.com]
-
-See [LICENSE](LICENSE) file for full terms.
 
 ---
 

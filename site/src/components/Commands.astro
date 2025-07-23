@@ -22,7 +22,7 @@ import SingleCommandBlock from './SingleCommandBlock.astro';
 
 		<div class="command-card">
 			<h3>pattern</h3>
-			<p>Pattern-based domain search</p>
+			<p>Pattern-based domain search (shows available domains only)</p>
 			<SingleCommandBlock command='dotchk pattern "[a-z]{4}.com" --limit 100' />
 			<div class="command-options">
 				<h4>Pattern Syntax:</h4>
@@ -32,6 +32,7 @@ import SingleCommandBlock from './SingleCommandBlock.astro';
 					<li><code>{3}</code> - Exactly 3 repetitions</li>
 					<li><code>(a|b|c)</code> - One of the options</li>
 				</ul>
+				<p class="note">Note: Only displays available domains for easier discovery</p>
 			</div>
 		</div>
 
@@ -155,5 +156,15 @@ import SingleCommandBlock from './SingleCommandBlock.astro';
 	.command-options code {
 		color: var(--color-accent);
 		background: rgba(0, 255, 136, 0.1);
+	}
+
+	.command-options .note {
+		margin-top: 1rem;
+		padding: 0.75rem 1rem;
+		background: rgba(0, 255, 136, 0.05);
+		border-left: 3px solid var(--color-accent);
+		border-radius: 4px;
+		font-size: 0.875rem;
+		color: var(--color-text-dim);
 	}
 </style>

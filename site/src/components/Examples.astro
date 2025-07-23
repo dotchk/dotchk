@@ -14,15 +14,13 @@ $ dotchk pattern "(get|try|use|my)[a-z]{3}.(com|io|app)"
 Generating domains...
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 48/48
 
-getabc.com → TAKEN (67ms)
 tryabc.com → AVAILABLE (45ms) ✓
-useabc.com → TAKEN (89ms)
-myabc.com → TAKEN (52ms)
-getxyz.io → TAKEN (156ms)
 tryxyz.io → AVAILABLE (41ms) ✓
-... (42 more results)
+usemno.app → AVAILABLE (38ms) ✓
+mydef.io → AVAILABLE (44ms) ✓
+... (8 more available)
 
-✓ Found 12 available domains`} />
+✓ Found 12 available domains (36 taken not shown)`} />
 		</div>
 
 		<div class="use-case">
@@ -62,11 +60,11 @@ yourbrand.inc → TAKEN (51ms)
 			<CommandBlock code={`# Premium short domains with stats
 $ dotchk pattern "[a-z]{3}.com" --limit 50 --stats
 
-aaa.com → TAKEN (45ms)
-aab.com → TAKEN (52ms)
-aac.com → TIMEOUT (3000ms) ⚠
 aad.com → AVAILABLE (39ms) ✓
-... (46 more)
+axy.com → AVAILABLE (42ms) ✓
+bqz.com → AVAILABLE (44ms) ✓
+
+✓ Found 3 available domains (45 taken, 2 errors not shown)
 
 ╭─────────────────────────────────────╮
 │           Summary Stats             │

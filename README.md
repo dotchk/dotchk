@@ -127,6 +127,8 @@ coolproject.app → AVAILABLE (41ms)
 
 Find available domains matching patterns:
 
+**Important:** The `pattern` command only displays available domains for easier discovery. Taken domains are checked but not shown in the output. To see all results (both taken and available), save the generated domains to a file and use the `bulk` command instead.
+
 ```bash
 # Find 3-letter .com domains
 dotchk pattern "[a-z]{3}.com" --limit 10
@@ -137,18 +139,10 @@ dotchk pattern "[a-z]{3}.com" --limit 10
 Searching for pattern: [a-z]{3}.com
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 10/10
 
-aaa.com → TAKEN (45ms)
-aab.com → TAKEN (52ms)
-aac.com → TAKEN (48ms)
-aad.com → TAKEN (61ms)
-aae.com → TAKEN (44ms)
 aaf.com → AVAILABLE (39ms) ✓
-aag.com → TAKEN (55ms)
-aah.com → TAKEN (42ms)
-aai.com → TAKEN (49ms)
 aaj.com → AVAILABLE (38ms) ✓
 
-✓ Found 2 available domains
+✓ Found 2 available domains (8 taken domains not shown)
 ```
 
 ```bash

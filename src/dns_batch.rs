@@ -9,6 +9,13 @@ use std::mem::{size_of, zeroed};
 #[cfg(target_os = "linux")]
 use std::os::unix::io::AsRawFd;
 
+// Constants
+// 4KB handles standard DNS (512 bytes) and EDNS0 (commonly up to 4KB).
+// Reduces allocation from 64MB to 4MB for 1024 messages.
+const DNS_BUFFER_SIZE: usize = 4096;
+#[cfg(target_os = "linux")]
+const MAX_BATCH_SIZE: usize = 1024; // Linux sendmmsg/recvmmsg limit
+
 // FFI declarations for sendmmsg/recvmmsg
 #[cfg(target_os = "linux")]
 extern "C" {
@@ -46,105 +53,104 @@ impl BatchDnsSocket {
             return Ok(vec![]);
         }
 
-        let fd = self.socket.as_raw_fd();
-        let batch_size = messages.len().min(1024); // Linux typically supports up to 1024
+        // Wait for socket to be writable to avoid EWOULDBLOCK on raw syscall
+        self.socket.writable().await?;
 
-        // Prepare message headers
-        let mut msgvec: Vec<mmsghdr> = Vec::with_capacity(batch_size);
+        let fd = self.socket.as_raw_fd();
+        let batch_size = messages.len().min(MAX_BATCH_SIZE);
+
+        // Pre-allocate all vectors with correct capacity
         let mut iovecs: Vec<iovec> = Vec::with_capacity(batch_size);
         let mut addrs: Vec<sockaddr_storage> = Vec::with_capacity(batch_size);
+        let mut msgvec: Vec<mmsghdr> = Vec::with_capacity(batch_size);
 
+        // Build structures in one pass with correct pointers
         for (data, addr) in messages.iter().take(batch_size) {
             let mut addr_storage: sockaddr_storage = unsafe { zeroed() };
             let addr_len = addr_to_sockaddr(addr, &mut addr_storage)?;
 
-            let iov = iovec {
+            addrs.push(addr_storage);
+            iovecs.push(iovec {
                 iov_base: data.as_ptr() as *mut c_void,
                 iov_len: data.len(),
-            };
+            });
+        }
 
+        // Build message headers pointing to stable vector elements
+        for i in 0..batch_size {
             let mut msg_hdr: msghdr = unsafe { zeroed() };
-            msg_hdr.msg_name = &mut addr_storage as *mut _ as *mut c_void;
-            msg_hdr.msg_namelen = addr_len;
-            msg_hdr.msg_iov = &iov as *const _ as *mut iovec;
+            msg_hdr.msg_name = &mut addrs[i] as *mut _ as *mut c_void;
+            msg_hdr.msg_namelen = size_of::<sockaddr_storage>() as socklen_t;
+            msg_hdr.msg_iov = &mut iovecs[i] as *mut iovec;
             msg_hdr.msg_iovlen = 1;
-
-            iovecs.push(iov);
-            addrs.push(addr_storage);
 
             msgvec.push(mmsghdr {
                 msg_hdr,
                 msg_len: 0,
             });
-        }
-
-        // Fix pointers after vectors are populated
-        for (i, (msg, addr)) in msgvec.iter_mut().zip(addrs.iter_mut()).enumerate() {
-            msg.msg_hdr.msg_name = addr as *mut _ as *mut c_void;
-            msg.msg_hdr.msg_iov = &mut iovecs[i] as *mut iovec;
         }
 
         // Send messages
         let result = unsafe { sendmmsg(fd, msgvec.as_mut_ptr(), batch_size as c_int, 0) };
 
         if result < 0 {
-            return Err(io::Error::last_os_error());
+            let err = io::Error::last_os_error();
+            // Socket became unwritable between writable() check and sendmmsg call (rare).
+            // Return empty batch; caller will retry.
+            if err.kind() == io::ErrorKind::WouldBlock {
+                return Ok(vec![]);
+            }
+            return Err(err);
         }
 
         // Extract sent lengths
-        let mut sent_lengths = Vec::with_capacity(result as usize);
-        for msg in msgvec.iter().take(result as usize) {
-            sent_lengths.push(msg.msg_len as usize);
-        }
+        let sent_lengths = msgvec
+            .iter()
+            .take(result as usize)
+            .map(|msg| msg.msg_len as usize)
+            .collect();
 
         Ok(sent_lengths)
     }
 
     #[cfg(target_os = "linux")]
     pub async fn recv_batch(&self, max_messages: usize) -> io::Result<Vec<(Vec<u8>, SocketAddr)>> {
-        let fd = self.socket.as_raw_fd();
-        let batch_size = max_messages.min(1024);
+        // Wait for socket to be readable. The timeout parameter on recvmmsg is ignored
+        // for non-blocking sockets, so without this we'd get EAGAIN in a busy loop.
+        self.socket.readable().await?;
 
-        // Prepare buffers and headers
-        let mut buffers: Vec<Vec<u8>> = vec![vec![0u8; 65535]; batch_size];
-        let mut msgvec: Vec<mmsghdr> = Vec::with_capacity(batch_size);
+        let fd = self.socket.as_raw_fd();
+        let batch_size = max_messages.min(MAX_BATCH_SIZE);
+
+        // Use 4KB buffers (reduces 64MB to 4MB for 1024 messages).
+        // DNS responses are typically <512 bytes, up to 4KB with EDNS0.
+        let mut buffers: Vec<Vec<u8>> = vec![vec![0u8; DNS_BUFFER_SIZE]; batch_size];
         let mut iovecs: Vec<iovec> = Vec::with_capacity(batch_size);
         let mut addrs: Vec<sockaddr_storage> = Vec::with_capacity(batch_size);
+        let mut msgvec: Vec<mmsghdr> = Vec::with_capacity(batch_size);
 
-        for buffer in buffers.iter_mut().take(batch_size) {
-            let mut addr_storage: sockaddr_storage = unsafe { zeroed() };
-
-            let iov = iovec {
+        // Build structures in one pass with correct pointers
+        for buffer in buffers.iter_mut() {
+            addrs.push(unsafe { zeroed() });
+            iovecs.push(iovec {
                 iov_base: buffer.as_mut_ptr() as *mut c_void,
                 iov_len: buffer.len(),
-            };
+            });
+        }
 
+        // Build message headers pointing to stable vector elements
+        for i in 0..batch_size {
             let mut msg_hdr: msghdr = unsafe { zeroed() };
-            msg_hdr.msg_name = &mut addr_storage as *mut _ as *mut c_void;
+            msg_hdr.msg_name = &mut addrs[i] as *mut _ as *mut c_void;
             msg_hdr.msg_namelen = size_of::<sockaddr_storage>() as socklen_t;
-            msg_hdr.msg_iov = &iov as *const _ as *mut iovec;
+            msg_hdr.msg_iov = &mut iovecs[i] as *mut iovec;
             msg_hdr.msg_iovlen = 1;
-
-            iovecs.push(iov);
-            addrs.push(addr_storage);
 
             msgvec.push(mmsghdr {
                 msg_hdr,
                 msg_len: 0,
             });
         }
-
-        // Fix pointers after vectors are populated
-        for (i, (msg, addr)) in msgvec.iter_mut().zip(addrs.iter_mut()).enumerate() {
-            msg.msg_hdr.msg_name = addr as *mut _ as *mut c_void;
-            msg.msg_hdr.msg_iov = &mut iovecs[i] as *mut iovec;
-        }
-
-        // Receive messages with timeout
-        let mut timeout = libc::timespec {
-            tv_sec: 1,
-            tv_nsec: 0,
-        };
 
         let result = unsafe {
             recvmmsg(
@@ -152,22 +158,29 @@ impl BatchDnsSocket {
                 msgvec.as_mut_ptr(),
                 batch_size as c_int,
                 0,
-                &mut timeout,
+                std::ptr::null_mut(), // timeout ignored on non-blocking sockets
             )
         };
 
         if result < 0 {
-            return Err(io::Error::last_os_error());
+            let err = io::Error::last_os_error();
+            // Data consumed between readable() check and recvmmsg call (rare race).
+            // Return empty batch; caller will retry.
+            if err.kind() == io::ErrorKind::WouldBlock {
+                return Ok(vec![]);
+            }
+            return Err(err);
         }
 
-        // Extract received messages
+        // Extract received messages - move buffers instead of cloning
         let mut messages = Vec::with_capacity(result as usize);
         for i in 0..result as usize {
             let len = msgvec[i].msg_len as usize;
-            buffers[i].truncate(len);
+            let mut buffer = std::mem::take(&mut buffers[i]);
+            buffer.truncate(len);
 
             let addr = sockaddr_to_addr(&addrs[i], msgvec[i].msg_hdr.msg_namelen)?;
-            messages.push((buffers[i].clone(), addr));
+            messages.push((buffer, addr));
         }
 
         Ok(messages)
@@ -176,11 +189,22 @@ impl BatchDnsSocket {
     // Fallback for non-Linux systems
     #[cfg(not(target_os = "linux"))]
     pub async fn send_batch(&self, messages: &[(Vec<u8>, SocketAddr)]) -> io::Result<Vec<usize>> {
+        if messages.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // Wait for socket to be writable (consistent with Linux version)
+        self.socket.writable().await?;
+
         let mut sent_lengths = Vec::with_capacity(messages.len());
 
         for (data, addr) in messages {
             match self.socket.send_to(data, addr).await {
                 Ok(len) => sent_lengths.push(len),
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    // Socket became unwritable - return what we've sent so far
+                    break;
+                }
                 Err(e) => return Err(e),
             }
         }
@@ -190,25 +214,25 @@ impl BatchDnsSocket {
 
     #[cfg(not(target_os = "linux"))]
     pub async fn recv_batch(&self, max_messages: usize) -> io::Result<Vec<(Vec<u8>, SocketAddr)>> {
+        // Wait for socket to be readable to avoid EAGAIN busy-wait
+        self.socket.readable().await?;
+
         let mut messages = Vec::with_capacity(max_messages);
-        let mut buffer = vec![0u8; 65535];
+        let mut buffer = vec![0u8; DNS_BUFFER_SIZE];
 
-        // Use tokio::select! with timeout for batch receiving
-        use tokio::time::{timeout, Duration};
-
+        // Try to receive multiple messages while socket is readable
         for _ in 0..max_messages {
-            match timeout(
-                Duration::from_millis(10),
-                self.socket.recv_from(&mut buffer),
-            )
-            .await
-            {
-                Ok(Ok((len, addr))) => {
+            match self.socket.try_recv_from(&mut buffer) {
+                Ok((len, addr)) => {
                     let mut data = vec![0u8; len];
                     data.copy_from_slice(&buffer[..len]);
                     messages.push((data, addr));
                 }
-                _ => break,
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    // No more data available
+                    break;
+                }
+                Err(e) => return Err(e),
             }
         }
 

@@ -339,17 +339,11 @@ dotchk pattern "(get|try|use|my)awesome.(com|io|app)"
 Generating domains from pattern...
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 12/12
 
-getawesome.com → TAKEN (67ms)
 tryawesome.com → AVAILABLE (45ms) ✓
-useawesome.com → TAKEN (52ms)
-myawesome.com → TAKEN (89ms)
-getawesome.io → TAKEN (94ms)
 tryawesome.io → AVAILABLE (41ms) ✓  
 useawesome.io → AVAILABLE (38ms) ✓
-myawesome.io → TAKEN (156ms)
 getawesome.app → AVAILABLE (44ms) ✓
 tryawesome.app → AVAILABLE (39ms) ✓
-useawesome.app → TAKEN (48ms)
 myawesome.app → AVAILABLE (42ms) ✓
 
 ✓ Found 6 available domains

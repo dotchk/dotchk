@@ -693,5 +693,4 @@ mod tests {
         let result = resolve_server_addr("not-an-ip");
         assert!(result.is_err());
     }
-
 }

@@ -67,7 +67,7 @@ impl BatchDnsSocket {
         // Build structures in one pass with correct pointers
         for (data, addr) in messages.iter().take(batch_size) {
             let mut addr_storage: sockaddr_storage = unsafe { zeroed() };
-            let addr_len = addr_to_sockaddr(addr, &mut addr_storage)?;
+            let _ = addr_to_sockaddr(addr, &mut addr_storage);
 
             addrs.push(addr_storage);
             iovecs.push(iovec {

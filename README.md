@@ -217,68 +217,6 @@ dotchk tld yourbrand --all --output brand-report.csv
 dotchk pattern "[a-z]{3}.io" --limit 100 --stats
 ```
 
-**Monitor competitors:**
-```bash
-echo "competitor1.com
-competitor2.net" > competitors.txt
-dotchk bulk competitors.txt
-```
-
-## Troubleshooting
-
-**Timeouts:**
-```bash
-dotchk domain.com --timeout 5000 --parallel 50
-```
-
-**Rate limiting:**
-```bash
-dotchk bulk domains.txt --parallel 25
-```
-
-**Debug:**
-```bash
-RUST_LOG=debug dotchk example.com
-```
-
-## Library Usage
-
-```toml
-[dependencies]
-dotchk = "1.4.0"
-tokio = { version = "1", features = ["full"] }
-```
-
-```rust
-use dotchk::{Checker, Pattern, CheckResult};
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let checker = Checker::builder()
-        .max_parallel(200)?
-        .timeout_ms(500)?
-        .build()
-        .await?;
-
-    let result = checker.check("example.com").await?;
-    println!("{}: {}", result.domain,
-        if result.available { "AVAILABLE" } else { "TAKEN" });
-
-    let pattern = Pattern::compile("[a-z]{3}.io")?;
-    let domains = pattern.generate(Some(100));
-    let results = checker.check_batch(domains).await;
-
-    let available: Vec<CheckResult> = results
-        .into_iter()
-        .filter_map(|r| r.ok())
-        .filter(|check| check.available)
-        .collect();
-
-    println!("Found {} available domains", available.len());
-    Ok(())
-}
-```
-
 ## Limitations
 
 Checks NS records for speed. False positives occur when domains are registered but have no nameservers configured.

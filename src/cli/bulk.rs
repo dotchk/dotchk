@@ -1,11 +1,12 @@
-use anyhow::Result;
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 use dotchk::Checker;
 use futures::StreamExt;
 use std::path::PathBuf;
 use tokio::fs;
 
 use super::output::{
-    create_progress_bar, format_domain_result, print_footer_note, print_info, print_warning,
+    create_progress_bar, format_domain_error, format_domain_result, print_footer_note, print_info,
+    print_warning,
 };
 use super::utils::{export_results, print_stats};
 
@@ -36,8 +37,8 @@ pub async fn bulk_check(
     ));
 
     let checker = Checker::builder()
-        .max_parallel(parallel)
-        .timeout_ms(timeout)
+        .max_parallel(parallel)?
+        .timeout_ms(timeout)?
         .build()
         .await?;
 
@@ -49,14 +50,25 @@ pub async fn bulk_check(
     while let Some(result) = stream.next().await {
         pb.inc(1);
 
-        if !available_only || (result.available && result.error.is_none()) {
-            pb.suspend(|| {
-                println!("{}", format_domain_result(&result));
-            });
-        }
+        match &result {
+            Ok(check) => {
+                if !available_only || check.available {
+                    pb.suspend(|| {
+                        println!("{}", format_domain_result(check));
+                    });
+                }
 
-        if result.available && result.error.is_none() {
-            has_available = true;
+                if check.available {
+                    has_available = true;
+                }
+            }
+            Err(e) => {
+                if !available_only {
+                    pb.suspend(|| {
+                        println!("{}", format_domain_error("unknown", &e.to_string()));
+                    });
+                }
+            }
         }
 
         results.push(result);

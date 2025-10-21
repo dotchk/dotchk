@@ -68,7 +68,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_batch_socket_creation() {
+    async fn batch_socket_creates_successfully() {
         let socket = BatchDnsSocket::new("0.0.0.0:0").await;
         assert!(socket.is_ok());
     }

@@ -1,7 +1,11 @@
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 use thiserror::Error;
 
+/// Pattern module Result type alias
+pub type Result<T> = std::result::Result<T, PatternError>;
+
+/// Errors that can occur during pattern compilation and generation
 #[derive(Error, Debug)]
 pub enum PatternError {
     #[error("Invalid pattern: {0}")]
@@ -11,9 +15,10 @@ pub enum PatternError {
     TooComplex,
 }
 
-lazy_static! {
-    // Common TLDs that should be recognized for auto-escaping
-    static ref COMMON_TLDS: Vec<&'static str> = vec![
+// Common TLDs that should be recognized for auto-escaping
+// Using LazyLock (stable since Rust 1.80) instead of lazy_static
+static COMMON_TLDS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+    vec![
         "com", "net", "org", "io", "co", "uk", "de", "fr", "it", "es", "nl", "ru", "jp", "cn",
         "au", "ca", "br", "in", "kr", "mx", "us", "edu", "gov", "mil", "info", "biz", "name",
         "tv", "cc", "me", "app", "dev", "xyz", "ai", "tech", "online", "store", "site", "website",
@@ -22,9 +27,9 @@ lazy_static! {
         "software", "systems", "technology", "agency", "academy", "center", "company", "computer",
         "design", "energy", "engineering", "expert", "global", "group", "host", "international",
         "media", "money", "photo", "photography", "plus", "pro", "social", "space", "support",
-        "team", "tips", "tools", "video", "web", "work", "works", "zone"
-    ];
-}
+        "team", "tips", "tools", "video", "web", "work", "works", "zone",
+    ]
+});
 
 /// Preprocesses a pattern to automatically escape dots before common TLDs
 /// This allows users to write `domain[a-z].com` instead of `domain[a-z]\.com`
@@ -76,12 +81,40 @@ fn preprocess_pattern(pattern: &str) -> String {
     result
 }
 
+/// Domain name pattern generator supporting regex-like syntax
 pub struct Pattern {
     pattern: String,
 }
 
 impl Pattern {
-    pub fn compile(pattern: &str) -> Result<Self, PatternError> {
+    /// Compile a pattern for domain generation.
+    ///
+    /// # Syntax
+    ///
+    /// - `[a-z]` - Character class (single character)
+    /// - `[a-z]{3}` - Exactly 3 characters from class
+    /// - `[a-z]{2,4}` - Between 2 and 4 characters from class
+    /// - `(get|try|use)` - Alternation (one of the options)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use dotchk::Pattern;
+    ///
+    /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// // Generate 3-letter .io domains
+    /// let pattern = Pattern::compile("[a-z]{3}.io")?;
+    /// let domains = pattern.generate(Some(100));
+    /// assert_eq!(domains.len(), 100);
+    ///
+    /// // Generate domains with alternation
+    /// let pattern = Pattern::compile("(get|try)[a-z]{2}.com")?;
+    /// let domains = pattern.generate(Some(52));
+    /// assert_eq!(domains.len(), 52); // 2 prefixes × 26 letters
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn compile(pattern: &str) -> Result<Self> {
         // Preprocess pattern to auto-escape dots before TLDs
         let processed_pattern = preprocess_pattern(pattern);
 
@@ -120,6 +153,7 @@ impl Pattern {
     }
 }
 
+/// Iterator for generating domains from a pattern
 pub struct PatternIterator {
     parts: Vec<PatternPart>,
     state: Vec<usize>,
@@ -145,6 +179,51 @@ impl PatternIterator {
             state,
             done: false,
         }
+    }
+
+    /// Calculate the total number of combinations this pattern can generate
+    fn calculate_size(parts: &[PatternPart]) -> usize {
+        let mut total = 1usize;
+
+        for part in parts {
+            match part {
+                PatternPart::Literal(_) => {
+                    // Literals don't multiply the count
+                }
+                PatternPart::CharClass(chars) => {
+                    if chars.is_empty() {
+                        return 0;
+                    }
+                    total = total.saturating_mul(chars.len());
+                }
+                PatternPart::Quantified(chars, min, max) => {
+                    if chars.is_empty() {
+                        return 0;
+                    }
+                    if min == max {
+                        // Fixed length: chars^length
+                        let power = chars.len().saturating_pow(*min as u32);
+                        total = total.saturating_mul(power);
+                    } else {
+                        // Range quantifier: sum of chars^i for i from min to max
+                        let mut range_total = 0usize;
+                        for len in *min..=*max {
+                            let power = chars.len().saturating_pow(len as u32);
+                            range_total = range_total.saturating_add(power);
+                        }
+                        total = total.saturating_mul(range_total);
+                    }
+                }
+                PatternPart::Alternation(options) => {
+                    if options.is_empty() {
+                        return 0;
+                    }
+                    total = total.saturating_mul(options.len());
+                }
+            }
+        }
+
+        total
     }
 }
 
@@ -218,6 +297,18 @@ impl Iterator for PatternIterator {
         }
 
         Some(result)
+    }
+}
+
+impl ExactSizeIterator for PatternIterator {
+    fn len(&self) -> usize {
+        // If done, no items remain
+        if self.done {
+            return 0;
+        }
+
+        // Calculate total size from parts
+        Self::calculate_size(&self.parts)
     }
 }
 
@@ -419,7 +510,7 @@ fn estimate_complexity(parts: &[PatternPart]) -> usize {
     complexity
 }
 
-fn pattern_to_regex(pattern: &str) -> Result<String, PatternError> {
+fn pattern_to_regex(pattern: &str) -> Result<String> {
     let mut regex = String::from("^");
     let chars: Vec<char> = pattern.chars().collect();
     let mut i = 0;
@@ -490,7 +581,7 @@ fn pattern_to_regex(pattern: &str) -> Result<String, PatternError> {
     Ok(regex)
 }
 
-fn parse_pattern(pattern: &str) -> Result<Vec<PatternPart>, PatternError> {
+fn parse_pattern(pattern: &str) -> Result<Vec<PatternPart>> {
     let mut parts = Vec::new();
     let chars: Vec<char> = pattern.chars().collect();
     let mut i = 0;
@@ -508,7 +599,9 @@ fn parse_pattern(pattern: &str) -> Result<Vec<PatternPart>, PatternError> {
                     && chars[i + 1] != ']'
                 {
                     // Range
-                    let start = *class_chars.last().unwrap();
+                    let start = *class_chars
+                        .last()
+                        .expect("class_chars guaranteed non-empty by check above");
                     i += 1;
                     let end = chars[i];
                     class_chars.pop();
@@ -622,7 +715,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_preprocess_pattern_auto_escape() {
+    fn preprocess_pattern_auto_escapes_tlds() {
         // Test auto-escaping of common TLDs
         assert_eq!(preprocess_pattern("domain[a-z].com"), "domain[a-z]\\.com");
         assert_eq!(preprocess_pattern("test[0-9]{3}.io"), "test[0-9]{3}\\.io");
@@ -649,7 +742,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pattern_with_unescaped_dots() {
+    fn pattern_works_with_unescaped_dots() {
         // Test that patterns with unescaped dots work correctly
         let pattern = Pattern::compile("test[abc].com").unwrap();
         let domains = pattern.generate(Some(3));
@@ -666,7 +759,7 @@ mod tests {
     }
 
     #[test]
-    fn test_alternation_single_group() {
+    fn alternation_expands_single_group() {
         // Test simple alternation
         let pattern = Pattern::compile("(get|try|use)test.com").unwrap();
         let domains = pattern.generate(None);
@@ -677,7 +770,7 @@ mod tests {
     }
 
     #[test]
-    fn test_alternation_with_character_class() {
+    fn alternation_combines_with_character_class() {
         // Test alternation combined with character classes
         let pattern = Pattern::compile("(get|try)[a-b].com").unwrap();
         let domains = pattern.generate(None);
@@ -689,7 +782,7 @@ mod tests {
     }
 
     #[test]
-    fn test_alternation_with_quantifier() {
+    fn alternation_combines_with_quantifier() {
         // Test alternation with quantifiers
         let pattern = Pattern::compile("(my|our)[a-b]{2}.com").unwrap();
         let domains = pattern.generate(None);
@@ -703,7 +796,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_alternation_groups() {
+    fn multiple_alternation_groups_work() {
         // Test multiple alternation groups in one pattern
         let pattern = Pattern::compile("(get|try)app.(com|io)").unwrap();
         let domains = pattern.generate(None);
@@ -715,7 +808,7 @@ mod tests {
     }
 
     #[test]
-    fn test_alternation_complex() {
+    fn alternation_handles_complex_patterns() {
         // Test complex pattern with alternation, character classes, and quantifiers
         let pattern = Pattern::compile("(web|app|api)[0-9]{2}.(com|net|org)").unwrap();
         let domains = pattern.generate(Some(10));
@@ -733,7 +826,7 @@ mod tests {
     }
 
     #[test]
-    fn test_alternation_empty_option() {
+    fn alternation_ignores_empty_options() {
         // Test alternation with empty options (should be ignored)
         let pattern = Pattern::compile("(get||try)test.com").unwrap();
         let domains = pattern.generate(None);
@@ -743,7 +836,7 @@ mod tests {
     }
 
     #[test]
-    fn test_alternation_order() {
+    fn alternation_generates_in_order() {
         // Test that alternation generates in the correct order
         let pattern = Pattern::compile("(a|b|c)x.com").unwrap();
         let domains = pattern.generate(None);
@@ -751,7 +844,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pattern_simple() {
+    fn pattern_generates_simple_domains() {
         // Test both escaped and unescaped versions
         let pattern1 = Pattern::compile("test-[abc].com").unwrap();
         let pattern2 = Pattern::compile("test-[abc]\\.com").unwrap();
@@ -767,7 +860,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pattern_quantified() {
+    fn pattern_handles_quantifiers() {
         let pattern = Pattern::compile("x[0-9]{2}.com").unwrap();
         let domains = pattern.generate(Some(10));
         println!("Generated domains: {:?}", &domains[..5]);
@@ -780,7 +873,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pattern_mixed() {
+    fn pattern_handles_mixed_syntax() {
         let pattern = Pattern::compile("app-[a-z]{3}.io").unwrap();
         let domains = pattern.generate(Some(30));
         assert!(domains.len() >= 26);
@@ -793,7 +886,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pattern_complexity() {
+    fn pattern_rejects_overly_complex() {
         // Should reject overly complex patterns
         let result = Pattern::compile("[a-z]{100}");
         assert!(result.is_err());
@@ -804,7 +897,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pattern_special_chars() {
+    fn pattern_handles_escaped_chars() {
         let pattern = Pattern::compile("test\\-domain\\.[a-z]{3}").unwrap();
         let domains = pattern.generate(Some(3));
         assert_eq!(domains[0], "test-domain.aaa");
@@ -813,7 +906,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_pattern() {
+    fn empty_pattern_generates_empty_string() {
         let pattern = Pattern::compile("").unwrap();
         let domains = pattern.generate(Some(10));
         assert_eq!(domains.len(), 1);
@@ -821,12 +914,12 @@ mod tests {
     }
 
     #[test]
-    fn test_range_quantifier_simple() {
+    fn range_quantifier_expands_correctly() {
         // Test {1,2} range quantifier
         let pattern = Pattern::compile("test[a-b]{1,2}.com").unwrap();
         let domains = pattern.generate(None);
 
-        println!("Simple range quantifier domains: {:?}", domains);
+        println!("Simple range quantifier domains: {domains:?}");
         println!("Total domains generated: {}", domains.len());
 
         // Should generate: a, b, aa, ab, ba, bb = 6 domains
@@ -844,7 +937,7 @@ mod tests {
     }
 
     #[test]
-    fn test_range_quantifier_larger() {
+    fn range_quantifier_handles_larger_ranges() {
         // Test {2,4} range quantifier
         let pattern = Pattern::compile("x[0-1]{2,4}.com").unwrap();
         let domains = pattern.generate(None);
@@ -862,7 +955,7 @@ mod tests {
     }
 
     #[test]
-    fn test_range_quantifier_with_alternation() {
+    fn range_quantifier_combines_with_alternation() {
         // Test combining range quantifiers with alternation
         let pattern = Pattern::compile("(get|try)[a-z]{1,2}.com").unwrap();
         let domains = pattern.generate(Some(100));
@@ -878,17 +971,55 @@ mod tests {
     }
 
     #[test]
-    fn test_range_quantifier_edge_cases() {
+    fn range_quantifier_handles_edge_cases() {
         // Test {0,2} - including empty
         let pattern = Pattern::compile("test[a-z]{0,2}.com").unwrap();
         let domains = pattern.generate(None);
 
-        println!("Generated domains: {:?}", domains);
+        println!("Generated domains: {domains:?}");
 
         // Should include "test.com" (0 characters)
         assert!(domains.contains(&"test.com".to_string()));
         // And single/double character versions
         assert!(domains.contains(&"testa.com".to_string()));
         assert!(domains.contains(&"testaa.com".to_string()));
+    }
+
+    #[test]
+    fn exact_size_iterator_works() {
+        // Simple character class: [a-c] = 3 options
+        let pattern = Pattern::compile("[a-c].com").unwrap();
+        let iter = pattern.generate_iter();
+        assert_eq!(iter.len(), 3);
+        let collected: Vec<_> = iter.collect();
+        assert_eq!(collected.len(), 3);
+
+        // Quantifier: [a-b]{2} = 2^2 = 4 options
+        let pattern = Pattern::compile("[a-b]{2}.com").unwrap();
+        let iter = pattern.generate_iter();
+        assert_eq!(iter.len(), 4);
+        let collected: Vec<_> = iter.collect();
+        assert_eq!(collected.len(), 4);
+
+        // Alternation: (get|try) = 2 options
+        let pattern = Pattern::compile("(get|try)test.com").unwrap();
+        let iter = pattern.generate_iter();
+        assert_eq!(iter.len(), 2);
+        let collected: Vec<_> = iter.collect();
+        assert_eq!(collected.len(), 2);
+
+        // Multiple parts: [a-b] * [0-1] = 2 * 2 = 4
+        let pattern = Pattern::compile("[a-b][0-1].com").unwrap();
+        let iter = pattern.generate_iter();
+        assert_eq!(iter.len(), 4);
+        let collected: Vec<_> = iter.collect();
+        assert_eq!(collected.len(), 4);
+
+        // Combination: [a-c] * (x|y) = 3 * 2 = 6
+        let pattern = Pattern::compile("[a-c](x|y).com").unwrap();
+        let iter = pattern.generate_iter();
+        assert_eq!(iter.len(), 6);
+        let collected: Vec<_> = iter.collect();
+        assert_eq!(collected.len(), 6);
     }
 }

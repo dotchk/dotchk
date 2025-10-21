@@ -1,7 +1,34 @@
+//! Domain availability checker using NS record queries.
+//!
+//! This module provides the main `Checker` API for determining if domains are available
+//! by querying authoritative DNS servers for NS (nameserver) records.
+//!
+//! # How It Works
+//!
+//! 1. Extract TLD from domain (e.g., "com" from "example.com")
+//! 2. Look up authoritative nameservers for that TLD (from pre-resolved IP list)
+//! 3. Query those nameservers for NS records of the domain
+//! 4. If no NS records exist → domain appears available
+//! 5. If NS records exist → domain is registered
+//!
+//! # Important Limitations
+//!
+//! **This tool uses NS record queries, not WHOIS.** Domains registered without nameservers
+//! configured will incorrectly appear as "available". Always verify with WHOIS before
+//! attempting to register a domain.
+//!
+//! # Fallback Strategy
+//!
+//! When authoritative servers fail:
+//! 1. Try all configured authoritative servers for the TLD (up to 3)
+//! 2. If all fail, fall back to system DNS resolver
+//! 3. If system resolver fails, return error
+//!
+//! This ensures maximum reliability while preferring authoritative answers.
+
 use crate::dns_pipelined::{DnsError, PipelinedDnsClient};
-use crate::tld::get_tld_info;
+use crate::tld_registry::get_tld_info;
 use crate::DomainCheckerError;
-use chrono::{DateTime, Utc};
 use futures::stream::{self, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -9,17 +36,20 @@ use std::time::{Duration, Instant};
 use tokio::sync::Semaphore;
 use tracing::{debug, info, warn};
 
+/// Result of a domain availability check
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckResult {
     pub domain: String,
     /// Whether the domain appears available (no NS records found).
     /// Note: This may be a false positive if the domain is registered without nameservers.
     pub available: bool,
-    pub response_time_ms: u32,
-    pub checked_at: DateTime<Utc>,
-    pub error: Option<String>,
 }
 
+/// Domain availability checker using DNS NS record queries
+///
+/// Notes:
+/// - Clone shares the same semaphore to maintain global parallelism limit across clones
+#[derive(Clone)]
 pub struct Checker {
     dns_client: Arc<PipelinedDnsClient>,
     max_parallel: usize,
@@ -27,6 +57,7 @@ pub struct Checker {
     timeout_ms: u64,
 }
 
+/// Builder for constructing a Checker with custom settings
 pub struct CheckerBuilder {
     max_parallel: usize,
     timeout_ms: u64,
@@ -44,19 +75,64 @@ impl Default for CheckerBuilder {
 }
 
 impl CheckerBuilder {
-    pub fn max_parallel(mut self, max_parallel: usize) -> Self {
+    /// Set the maximum number of parallel DNS queries.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if max_parallel is 0 or exceeds 10,000.
+    pub fn max_parallel(mut self, max_parallel: usize) -> Result<Self, DomainCheckerError> {
+        if max_parallel == 0 {
+            return Err(DomainCheckerError::Internal(
+                "max_parallel must be at least 1".to_string(),
+            ));
+        }
+        if max_parallel > 10_000 {
+            return Err(DomainCheckerError::Internal(
+                "max_parallel cannot exceed 10,000 (resource limits)".to_string(),
+            ));
+        }
         self.max_parallel = max_parallel;
-        self
+        Ok(self)
     }
 
-    pub fn timeout_ms(mut self, timeout_ms: u64) -> Self {
+    /// Set the DNS query timeout in milliseconds.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if timeout_ms is 0 or exceeds 60,000 (60 seconds).
+    pub fn timeout_ms(mut self, timeout_ms: u64) -> Result<Self, DomainCheckerError> {
+        if timeout_ms == 0 {
+            return Err(DomainCheckerError::Internal(
+                "timeout_ms must be at least 1".to_string(),
+            ));
+        }
+        if timeout_ms > 60_000 {
+            return Err(DomainCheckerError::Internal(
+                "timeout_ms cannot exceed 60,000 (60 seconds)".to_string(),
+            ));
+        }
         self.timeout_ms = timeout_ms;
-        self
+        Ok(self)
     }
 
-    pub fn cache_ttl(mut self, cache_ttl: Duration) -> Self {
+    /// Set the DNS cache TTL (time-to-live).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if cache_ttl is 0 or exceeds 1 hour.
+    pub fn cache_ttl(mut self, cache_ttl: Duration) -> Result<Self, DomainCheckerError> {
+        if cache_ttl.is_zero() {
+            return Err(DomainCheckerError::Internal(
+                "cache_ttl must be greater than 0".to_string(),
+            ));
+        }
+        if cache_ttl > Duration::from_secs(3600) {
+            return Err(DomainCheckerError::Internal(
+                "cache_ttl cannot exceed 1 hour".to_string(),
+            ));
+        }
         self.cache_ttl = cache_ttl;
-        self
+        Ok(self)
     }
 
     pub async fn build(self) -> Result<Checker, DomainCheckerError> {
@@ -88,33 +164,43 @@ impl Checker {
     /// will be incorrectly reported as "available".
     ///
     /// Always verify with WHOIS before attempting to register a domain.
-    pub async fn check(&self, domain: &str) -> CheckResult {
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use dotchk::Checker;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let checker = Checker::builder()
+    ///     .max_parallel(100)?
+    ///     .timeout_ms(5000)?
+    ///     .build()
+    ///     .await?;
+    ///
+    /// let result = checker.check("example.com").await?;
+    /// println!("{} - available: {}", result.domain, result.available);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn check(&self, domain: &str) -> Result<CheckResult, DomainCheckerError> {
         let start = Instant::now();
         let domain = domain.to_lowercase();
 
-        let result = match self.check_domain_internal(&domain).await {
-            Ok(available) => CheckResult {
-                domain: domain.clone(),
-                available,
-                response_time_ms: start.elapsed().as_millis() as u32,
-                checked_at: Utc::now(),
-                error: None,
-            },
-            Err(e) => CheckResult {
-                domain: domain.clone(),
-                available: false,
-                response_time_ms: start.elapsed().as_millis() as u32,
-                checked_at: Utc::now(),
-                error: Some(e.to_string()),
-            },
+        let available = self.check_domain_internal(&domain).await?;
+
+        let result = CheckResult {
+            domain: domain.clone(),
+            available,
         };
 
         debug!(
             "Checked {}: available={}, time={}ms",
-            result.domain, result.available, result.response_time_ms
+            result.domain,
+            result.available,
+            start.elapsed().as_millis()
         );
 
-        result
+        Ok(result)
     }
 
     async fn check_domain_internal(&self, domain: &str) -> Result<bool, DomainCheckerError> {
@@ -135,17 +221,19 @@ impl Checker {
         debug!("Acquiring semaphore permit for {}", domain);
         let _permit = self.semaphore.acquire().await.map_err(|_| {
             warn!("Semaphore acquire failed for {}", domain);
-            DomainCheckerError::Timeout
+            DomainCheckerError::Internal("concurrency semaphore closed unexpectedly".to_string())
         })?;
         debug!("Acquired semaphore permit for {}", domain);
 
-        // Use the TLD's timeout for each individual server query
-        let per_server_timeout = tld_info.timeout_ms;
+        // Use the minimum of user timeout and TLD timeout to respect user's maximum
+        let per_server_timeout = self.timeout_ms.min(tld_info.timeout_ms);
         debug!(
-            "Checking {} with {} servers, per-server timeout {}ms",
+            "Checking {} with {} servers, per-server timeout {}ms (checker: {}ms, tld: {}ms)",
             domain,
             tld_info.servers.len(),
-            per_server_timeout
+            per_server_timeout,
+            self.timeout_ms,
+            tld_info.timeout_ms
         );
 
         // The servers are already pre-resolved IPs, so we can use them directly
@@ -228,7 +316,7 @@ impl Checker {
         Err(DomainCheckerError::UnsupportedTld(extract_tld(domain)))
     }
 
-    pub fn check_stream(&self, domains: Vec<String>) -> impl Stream<Item = CheckResult> + '_ {
+    pub fn check_stream(&self, domains: Vec<String>) -> impl Stream<Item = Result<CheckResult, DomainCheckerError>> + '_ {
         let futures: Vec<_> = domains
             .into_iter()
             .map(|domain| {
@@ -240,7 +328,32 @@ impl Checker {
         stream::iter(futures).buffer_unordered(self.max_parallel)
     }
 
-    pub async fn check_batch(&self, domains: Vec<String>) -> Vec<CheckResult> {
+    /// Check multiple domains concurrently.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use dotchk::Checker;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let checker = Checker::builder()
+    ///     .max_parallel(200)?
+    ///     .build()
+    ///     .await?;
+    ///
+    /// let domains = vec!["test1.com".to_string(), "test2.com".to_string()];
+    /// let results = checker.check_batch(domains).await;
+    ///
+    /// for result in results {
+    ///     match result {
+    ///         Ok(check) => println!("{}: {}", check.domain, if check.available { "available" } else { "taken" }),
+    ///         Err(e) => eprintln!("Error: {}", e),
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn check_batch(&self, domains: Vec<String>) -> Vec<Result<CheckResult, DomainCheckerError>> {
         // For now, use individual checks to ensure proper fallback logic
         // This is less efficient but ensures consistency with server fallback and local resolver
         let futures: Vec<_> = domains
@@ -256,17 +369,6 @@ impl Checker {
             .buffer_unordered(self.max_parallel)
             .collect()
             .await
-    }
-}
-
-impl Clone for Checker {
-    fn clone(&self) -> Self {
-        Self {
-            dns_client: self.dns_client.clone(),
-            max_parallel: self.max_parallel,
-            semaphore: Arc::new(Semaphore::new(self.max_parallel)),
-            timeout_ms: self.timeout_ms,
-        }
     }
 }
 
@@ -300,6 +402,10 @@ fn is_valid_domain(domain: &str) -> bool {
     true
 }
 
+/// Extracts the TLD from a domain string.
+///
+/// Returns the last component after splitting by '.', or "unknown" if extraction fails.
+/// This function is infallible and safe to use after domain validation.
 fn extract_tld(domain: &str) -> String {
     domain
         .split('.')
@@ -314,12 +420,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_is_valid_domain() {
+    fn is_valid_domain_accepts_valid_formats() {
         assert!(is_valid_domain("example.com"));
         assert!(is_valid_domain("sub.example.com"));
         assert!(is_valid_domain("my-site.co.uk"));
         assert!(is_valid_domain("123.456.xyz"));
+        // Single letter TLDs do exist (e.g., .x, .i)
+        assert!(is_valid_domain("example.c"));
+    }
 
+    #[test]
+    fn is_valid_domain_rejects_invalid_formats() {
         assert!(!is_valid_domain(""));
         assert!(!is_valid_domain("example"));
         assert!(!is_valid_domain(".com"));
@@ -327,22 +438,32 @@ mod tests {
         assert!(!is_valid_domain("-example.com"));
         assert!(!is_valid_domain("example-.com"));
         assert!(!is_valid_domain("exam ple.com"));
-        // Single letter TLDs do exist (e.g., .x, .i)
-        assert!(is_valid_domain("example.c"));
 
         let long_label = "a".repeat(64);
         assert!(!is_valid_domain(&format!("{long_label}.com")));
     }
 
     #[test]
-    fn test_extract_tld() {
+    fn extract_tld_returns_valid_tld() {
         assert_eq!(extract_tld("example.com"), "com");
         assert_eq!(extract_tld("test.co.uk"), "uk");
         assert_eq!(extract_tld("domain.xyz"), "xyz");
     }
 
     #[test]
-    fn test_is_valid_domain_edge_cases() {
+    fn extract_tld_returns_unknown_on_invalid_domain() {
+        assert_eq!(extract_tld(""), "unknown");
+        assert_eq!(extract_tld("."), "unknown");
+    }
+
+    #[test]
+    fn extract_tld_handles_single_label() {
+        // Single label domains (no dots) return the whole label as TLD
+        assert_eq!(extract_tld("nodot"), "nodot");
+    }
+
+    #[test]
+    fn is_valid_domain_handles_edge_cases() {
         // Test maximum domain length (253 characters)
         let long_domain = format!(
             "{}.{}.{}.com",

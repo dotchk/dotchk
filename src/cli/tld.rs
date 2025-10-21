@@ -1,12 +1,12 @@
-use anyhow::Result;
-use dotchk::tld::{get_public_tlds, TLD_SERVERS};
-use dotchk::{CheckResult, Checker};
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+use dotchk::{get_public_tlds, CheckResult, Checker, DomainCheckerError, TLD_SERVERS};
 use futures::StreamExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 use super::output::{
-    create_progress_bar, format_tld_result, print_footer_note, print_header, print_info,
+    create_progress_bar, format_tld_error, format_tld_result, print_footer_note, print_header,
+    print_info,
 };
 use super::utils::{export_results, print_tld_stats};
 
@@ -104,8 +104,8 @@ pub async fn check_tlds(
     ));
 
     let checker = Checker::builder()
-        .max_parallel(parallel)
-        .timeout_ms(timeout)
+        .max_parallel(parallel)?
+        .timeout_ms(timeout)?
         .build()
         .await?;
 
@@ -113,20 +113,15 @@ pub async fn check_tlds(
     let pb = create_progress_bar(domains_to_check.len() as u64, "Checking TLDs");
     let mut stream = Box::pin(checker.check_stream(domains_to_check));
 
-    // Group results by base domain for better display
-    let mut grouped_results: HashMap<String, Vec<CheckResult>> = HashMap::new();
-
     while let Some(result) = stream.next().await {
         pb.inc(1);
-        let base_domain = extract_base_domain(&result.domain);
-        results.push(result.clone());
-        grouped_results.entry(base_domain).or_default().push(result);
+        results.push(result);
     }
 
     pb.finish_and_clear();
 
     // Print results grouped by domain
-    print_grouped_results(&domains, &grouped_results, available_only);
+    print_grouped_results(&domains, &results, available_only);
 
     if show_stats {
         print_tld_stats(&results);
@@ -246,10 +241,22 @@ fn extract_base_domain(domain: &str) -> String {
 
 fn print_grouped_results(
     domains: &[String],
-    grouped_results: &HashMap<String, Vec<CheckResult>>,
+    results: &[std::result::Result<CheckResult, DomainCheckerError>],
     available_only: bool,
 ) {
     let mut has_available = false;
+
+    // Group results by base domain
+    let mut grouped_results: HashMap<String, Vec<&std::result::Result<CheckResult, DomainCheckerError>>> =
+        HashMap::new();
+
+    for result in results {
+        let base_domain = match result {
+            Ok(check) => extract_base_domain(&check.domain),
+            Err(_) => "unknown".to_string(),
+        };
+        grouped_results.entry(base_domain).or_default().push(result);
+    }
 
     for domain in domains {
         let base_domain = domain.split('.').next().unwrap_or(domain);
@@ -257,35 +264,50 @@ fn print_grouped_results(
         let base_domain_lower = base_domain.to_lowercase();
 
         if let Some(domain_results) = grouped_results.get(&base_domain_lower) {
-            let mut sorted_results = domain_results.clone();
-            sorted_results.sort_by_key(|r| r.domain.clone());
+            let mut sorted_results = domain_results.to_vec();
+            sorted_results.sort_by_key(|r| match r {
+                Ok(check) => check.domain.clone(),
+                Err(_) => "unknown".to_string(),
+            });
 
             // Calculate max domain width for alignment
             let max_width = sorted_results
                 .iter()
-                .filter(|r| !available_only || (r.available && r.error.is_none()))
-                .map(|r| r.domain.len())
+                .filter_map(|r| match r {
+                    Ok(check) if !available_only || check.available => Some(check.domain.len()),
+                    _ => None,
+                })
                 .max()
                 .unwrap_or(0);
 
             // Only print header if we have results to show
-            let has_results = sorted_results
-                .iter()
-                .any(|r| !available_only || (r.available && r.error.is_none()));
+            let has_results = sorted_results.iter().any(|r| match r {
+                Ok(check) => !available_only || check.available,
+                Err(_) => !available_only,
+            });
 
             if has_results {
                 print_header(base_domain);
             }
 
             for result in sorted_results {
-                if available_only && (!result.available || result.error.is_some()) {
-                    continue;
-                }
+                match result {
+                    Ok(check) => {
+                        if available_only && !check.available {
+                            continue;
+                        }
 
-                println!("{}", format_tld_result(&result, true, max_width));
+                        println!("{}", format_tld_result(check, true, max_width));
 
-                if result.available && result.error.is_none() {
-                    has_available = true;
+                        if check.available {
+                            has_available = true;
+                        }
+                    }
+                    Err(e) => {
+                        if !available_only {
+                            println!("{}", format_tld_error("unknown", &e.to_string(), true, max_width));
+                        }
+                    }
                 }
             }
         }

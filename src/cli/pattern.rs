@@ -1,9 +1,11 @@
-use anyhow::Result;
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 use dotchk::{Checker, Pattern};
 use futures::StreamExt;
 use std::path::PathBuf;
 
-use super::output::{create_progress_bar, format_domain_result, print_footer_note, print_info};
+use super::output::{
+    create_progress_bar, format_domain_error, format_domain_result, print_footer_note, print_info,
+};
 use super::utils::{export_results, print_stats};
 
 pub async fn check_pattern(
@@ -21,8 +23,8 @@ pub async fn check_pattern(
     print_info(&format!("Generated {} domains from pattern", domains.len()));
 
     let checker = Checker::builder()
-        .max_parallel(parallel)
-        .timeout_ms(timeout)
+        .max_parallel(parallel)?
+        .timeout_ms(timeout)?
         .build()
         .await?;
 
@@ -34,14 +36,25 @@ pub async fn check_pattern(
     while let Some(result) = stream.next().await {
         pb.inc(1);
 
-        if !available_only || (result.available && result.error.is_none()) {
-            pb.suspend(|| {
-                println!("{}", format_domain_result(&result));
-            });
-        }
+        match &result {
+            Ok(check) => {
+                if !available_only || check.available {
+                    pb.suspend(|| {
+                        println!("{}", format_domain_result(check));
+                    });
+                }
 
-        if result.available && result.error.is_none() {
-            has_available = true;
+                if check.available {
+                    has_available = true;
+                }
+            }
+            Err(e) => {
+                if !available_only {
+                    pb.suspend(|| {
+                        println!("{}", format_domain_error("unknown", &e.to_string()));
+                    });
+                }
+            }
         }
 
         results.push(result);

@@ -1,7 +1,9 @@
-use anyhow::Result;
 use clap::{Parser, Subcommand};
+use std::error::Error;
 use std::path::PathBuf;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 mod cli;
 

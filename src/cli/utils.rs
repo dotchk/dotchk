@@ -1,23 +1,35 @@
 use crate::cli::output::{
-    format_domain_result, print_export_success, print_footer_note, print_statistics,
-    print_tld_statistics,
+    format_domain_error, format_domain_result, print_export_success, print_footer_note,
+    print_statistics, print_tld_statistics,
 };
-use anyhow::Result;
-use dotchk::{export::StatsExporter, CheckResult, CsvExporter};
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+use dotchk::{export::StatsExporter, CheckResult, CsvExporter, DomainCheckerError};
 use std::path::PathBuf;
 
-pub fn print_results(results: &[CheckResult], available_only: bool) {
+pub fn print_results(
+    results: &[std::result::Result<CheckResult, DomainCheckerError>],
+    available_only: bool,
+) {
     let mut has_available = false;
 
     for result in results {
-        if available_only && (!result.available || result.error.is_some()) {
-            continue;
-        }
+        match result {
+            Ok(check) => {
+                if available_only && !check.available {
+                    continue;
+                }
 
-        println!("{}", format_domain_result(result));
+                println!("{}", format_domain_result(check));
 
-        if result.available && result.error.is_none() {
-            has_available = true;
+                if check.available {
+                    has_available = true;
+                }
+            }
+            Err(e) => {
+                if !available_only {
+                    println!("{}", format_domain_error("unknown", &e.to_string()));
+                }
+            }
         }
     }
 
@@ -26,14 +38,18 @@ pub fn print_results(results: &[CheckResult], available_only: bool) {
     }
 }
 
-pub fn export_results(results: &[CheckResult], path: &PathBuf, available_only: bool) -> Result<()> {
+pub fn export_results(
+    results: &[std::result::Result<CheckResult, DomainCheckerError>],
+    path: &PathBuf,
+    available_only: bool,
+) -> Result<()> {
     let exporter = CsvExporter::new(path);
 
     if available_only {
         exporter.export_available_only(results)?;
         let available_count = results
             .iter()
-            .filter(|r| r.available && r.error.is_none())
+            .filter(|r| matches!(r, Ok(check) if check.available))
             .count();
         print_export_success(&path.display().to_string(), available_count);
     } else {
@@ -44,12 +60,12 @@ pub fn export_results(results: &[CheckResult], path: &PathBuf, available_only: b
     Ok(())
 }
 
-pub fn print_stats(results: &[CheckResult]) {
+pub fn print_stats(results: &[std::result::Result<CheckResult, DomainCheckerError>]) {
     let stats = StatsExporter::calculate_stats(results);
     print_statistics(&stats);
 }
 
-pub fn print_tld_stats(results: &[CheckResult]) {
+pub fn print_tld_stats(results: &[std::result::Result<CheckResult, DomainCheckerError>]) {
     let stats = StatsExporter::calculate_stats(results);
     print_tld_statistics(&stats);
 }

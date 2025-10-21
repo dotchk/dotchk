@@ -1,8 +1,13 @@
 use crate::checker::CheckResult;
+use crate::DomainCheckerError;
 use csv::Writer;
 use std::path::Path;
 use thiserror::Error;
 
+/// Export module Result type alias
+pub type Result<T> = std::result::Result<T, ExportError>;
+
+/// Errors that can occur during export operations
 #[derive(Error, Debug)]
 pub enum ExportError {
     #[error("CSV error: {0}")]
@@ -12,6 +17,7 @@ pub enum ExportError {
     Io(#[from] std::io::Error),
 }
 
+/// CSV exporter for domain check results
 pub struct CsvExporter {
     path: String,
 }
@@ -23,36 +29,33 @@ impl CsvExporter {
         }
     }
 
-    pub fn export(&self, results: &[CheckResult]) -> Result<(), ExportError> {
+    pub fn export(&self, results: &[std::result::Result<CheckResult, DomainCheckerError>]) -> Result<()> {
         let mut wtr = Writer::from_path(&self.path)?;
 
         // Write header
-        wtr.write_record([
-            "domain",
-            "available",
-            "response_time_ms",
-            "checked_at",
-            "error",
-        ])?;
+        wtr.write_record(["domain", "available", "error"])?;
 
         // Write records
         for result in results {
-            wtr.write_record([
-                &result.domain,
-                &result.available.to_string(),
-                &result.response_time_ms.to_string(),
-                &result.checked_at.to_rfc3339(),
-                result.error.as_deref().unwrap_or(""),
-            ])?;
+            match result {
+                Ok(check) => {
+                    wtr.write_record([&check.domain, &check.available.to_string(), ""])?;
+                }
+                Err(e) => {
+                    // For errors, we don't know the domain unless we parse the error
+                    // For now, skip or we could extract domain from error message
+                    wtr.write_record(["unknown", "false", &e.to_string()])?;
+                }
+            }
         }
 
         wtr.flush()?;
         Ok(())
     }
 
-    pub async fn export_stream<S>(&self, mut results: S) -> Result<usize, ExportError>
+    pub async fn export_stream<S>(&self, mut results: S) -> Result<usize>
     where
-        S: futures::Stream<Item = CheckResult> + Unpin,
+        S: futures::Stream<Item = std::result::Result<CheckResult, DomainCheckerError>> + Unpin,
     {
         use futures::StreamExt;
 
@@ -60,23 +63,18 @@ impl CsvExporter {
         let mut count = 0;
 
         // Write header
-        wtr.write_record([
-            "domain",
-            "available",
-            "response_time_ms",
-            "checked_at",
-            "error",
-        ])?;
+        wtr.write_record(["domain", "available", "error"])?;
 
         // Write records as they come in
         while let Some(result) = results.next().await {
-            wtr.write_record([
-                &result.domain,
-                &result.available.to_string(),
-                &result.response_time_ms.to_string(),
-                &result.checked_at.to_rfc3339(),
-                result.error.as_deref().unwrap_or(""),
-            ])?;
+            match result {
+                Ok(check) => {
+                    wtr.write_record([&check.domain, &check.available.to_string(), ""])?;
+                }
+                Err(e) => {
+                    wtr.write_record(["unknown", "false", &e.to_string()])?;
+                }
+            }
             count += 1;
 
             // Flush periodically for large streams
@@ -89,24 +87,17 @@ impl CsvExporter {
         Ok(count)
     }
 
-    pub fn export_available_only(&self, results: &[CheckResult]) -> Result<(), ExportError> {
-        let available_results: Vec<&CheckResult> = results
-            .iter()
-            .filter(|r| r.available && r.error.is_none())
-            .collect();
-
+    pub fn export_available_only(&self, results: &[std::result::Result<CheckResult, DomainCheckerError>]) -> Result<()> {
         let mut wtr = Writer::from_path(&self.path)?;
 
         // Write header
-        wtr.write_record(["domain", "response_time_ms", "checked_at"])?;
+        wtr.write_record(["domain"])?;
 
-        // Write records
-        for result in available_results {
-            wtr.write_record([
-                &result.domain,
-                &result.response_time_ms.to_string(),
-                &result.checked_at.to_rfc3339(),
-            ])?;
+        // Write records - only successful checks that are available
+        for check in results.iter().flatten() {
+            if check.available {
+                wtr.write_record([&check.domain])?;
+            }
         }
 
         wtr.flush()?;
@@ -114,49 +105,27 @@ impl CsvExporter {
     }
 }
 
+/// Statistics calculator for domain check results
 pub struct StatsExporter;
 
 impl StatsExporter {
-    pub fn calculate_stats(results: &[CheckResult]) -> Stats {
+    pub fn calculate_stats(results: &[std::result::Result<CheckResult, DomainCheckerError>]) -> Stats {
         let total = results.len();
         let available = results
             .iter()
-            .filter(|r| r.available && r.error.is_none())
+            .filter(|r| matches!(r, Ok(check) if check.available))
             .count();
-        let errors = results.iter().filter(|r| r.error.is_some()).count();
-
-        let response_times: Vec<u32> = results
-            .iter()
-            .filter(|r| r.error.is_none())
-            .map(|r| r.response_time_ms)
-            .collect();
-
-        let avg_response_time = if !response_times.is_empty() {
-            response_times.iter().sum::<u32>() / response_times.len() as u32
-        } else {
-            0
-        };
-
-        let mut sorted_times = response_times.clone();
-        sorted_times.sort_unstable();
-
-        let p50 = percentile(&sorted_times, 50);
-        let p95 = percentile(&sorted_times, 95);
-        let p99 = percentile(&sorted_times, 99);
+        let errors = results.iter().filter(|r| r.is_err()).count();
 
         Stats {
             total,
             available,
             unavailable: total - available - errors,
             errors,
-            avg_response_time_ms: avg_response_time,
-            p50_response_time_ms: p50,
-            p95_response_time_ms: p95,
-            p99_response_time_ms: p99,
         }
     }
 
-    pub fn export_stats_csv<P: AsRef<Path>>(path: P, stats: &Stats) -> Result<(), ExportError> {
+    pub fn export_stats_csv<P: AsRef<Path>>(path: P, stats: &Stats) -> Result<()> {
         let mut wtr = Writer::from_path(path)?;
 
         wtr.write_record(["metric", "value"])?;
@@ -165,22 +134,6 @@ impl StatsExporter {
         wtr.write_record(["available", &stats.available.to_string()])?;
         wtr.write_record(["unavailable", &stats.unavailable.to_string()])?;
         wtr.write_record(["errors", &stats.errors.to_string()])?;
-        wtr.write_record([
-            "avg_response_time_ms",
-            &stats.avg_response_time_ms.to_string(),
-        ])?;
-        wtr.write_record([
-            "p50_response_time_ms",
-            &stats.p50_response_time_ms.to_string(),
-        ])?;
-        wtr.write_record([
-            "p95_response_time_ms",
-            &stats.p95_response_time_ms.to_string(),
-        ])?;
-        wtr.write_record([
-            "p99_response_time_ms",
-            &stats.p99_response_time_ms.to_string(),
-        ])?;
 
         wtr.flush()?;
         Ok(())
@@ -188,56 +141,30 @@ impl StatsExporter {
 }
 
 #[derive(Debug, Clone)]
+/// Statistics about domain check results
 pub struct Stats {
     pub total: usize,
     pub available: usize,
     pub unavailable: usize,
     pub errors: usize,
-    pub avg_response_time_ms: u32,
-    pub p50_response_time_ms: u32,
-    pub p95_response_time_ms: u32,
-    pub p99_response_time_ms: u32,
-}
-
-fn percentile(sorted_data: &[u32], p: usize) -> u32 {
-    if sorted_data.is_empty() {
-        return 0;
-    }
-
-    let idx = ((p as f64 / 100.0) * (sorted_data.len() - 1) as f64) as usize;
-    let idx = idx.min(sorted_data.len() - 1); // Ensure we don't go out of bounds
-    sorted_data[idx]
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
 
     #[test]
-    fn test_stats_calculation() {
+    fn stats_calculation_computes_correctly() {
         let results = vec![
-            CheckResult {
+            Ok(CheckResult {
                 domain: "test1.com".to_string(),
                 available: true,
-                response_time_ms: 50,
-                checked_at: Utc::now(),
-                error: None,
-            },
-            CheckResult {
+            }),
+            Ok(CheckResult {
                 domain: "test2.com".to_string(),
                 available: false,
-                response_time_ms: 100,
-                checked_at: Utc::now(),
-                error: None,
-            },
-            CheckResult {
-                domain: "test3.com".to_string(),
-                available: false,
-                response_time_ms: 0,
-                checked_at: Utc::now(),
-                error: Some("Timeout".to_string()),
-            },
+            }),
+            Err(crate::DomainCheckerError::Timeout),
         ];
 
         let stats = StatsExporter::calculate_stats(&results);

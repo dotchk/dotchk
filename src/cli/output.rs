@@ -1,20 +1,20 @@
 use colored::*;
 use dotchk::CheckResult;
 use indicatif::{ProgressBar, ProgressStyle};
-use once_cell::sync::Lazy;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::LazyLock;
 use std::time::Duration;
 
 // Global flag for quiet mode
 pub static QUIET_MODE: AtomicBool = AtomicBool::new(false);
 
 // Professional color scheme
-static AVAILABLE_COLOR: Lazy<Color> = Lazy::new(|| Color::BrightGreen);
-static TAKEN_COLOR: Lazy<Color> = Lazy::new(|| Color::BrightRed);
-static ERROR_COLOR: Lazy<Color> = Lazy::new(|| Color::Yellow);
-static INFO_COLOR: Lazy<Color> = Lazy::new(|| Color::BrightBlue);
-static DIM_COLOR: Lazy<Color> = Lazy::new(|| Color::BrightBlack);
-static HEADER_COLOR: Lazy<Color> = Lazy::new(|| Color::BrightWhite);
+static AVAILABLE_COLOR: LazyLock<Color> = LazyLock::new(|| Color::BrightGreen);
+static TAKEN_COLOR: LazyLock<Color> = LazyLock::new(|| Color::BrightRed);
+static ERROR_COLOR: LazyLock<Color> = LazyLock::new(|| Color::Yellow);
+static INFO_COLOR: LazyLock<Color> = LazyLock::new(|| Color::BrightBlue);
+static DIM_COLOR: LazyLock<Color> = LazyLock::new(|| Color::BrightBlack);
+static HEADER_COLOR: LazyLock<Color> = LazyLock::new(|| Color::BrightWhite);
 
 pub fn set_quiet_mode(quiet: bool) {
     QUIET_MODE.store(quiet, Ordering::Relaxed);
@@ -56,64 +56,62 @@ pub fn print_warning(text: &str) {
 
 /// Format a domain result with colors
 pub fn format_domain_result(result: &CheckResult) -> String {
-    if let Some(error) = &result.error {
-        format!(
-            "{} {} {}",
-            result.domain.color(*DIM_COLOR),
-            "→".color(*DIM_COLOR),
-            format!("ERROR: {error}").color(*ERROR_COLOR)
-        )
+    let status = if result.available {
+        "AVAILABLE".color(*AVAILABLE_COLOR).bold()
     } else {
-        let status = if result.available {
-            "AVAILABLE".color(*AVAILABLE_COLOR).bold()
-        } else {
-            "TAKEN".color(*TAKEN_COLOR)
-        };
+        "TAKEN".color(*TAKEN_COLOR)
+    };
 
-        let response_time = format!("{}ms", result.response_time_ms).color(*DIM_COLOR);
+    format!(
+        "{} {} {}",
+        result.domain,
+        "→".color(*DIM_COLOR),
+        status
+    )
+}
 
-        format!(
-            "{} {} {} {}",
-            result.domain,
-            "→".color(*DIM_COLOR),
-            status,
-            format!("({response_time})").color(*DIM_COLOR)
-        )
-    }
+/// Format a domain error with colors
+pub fn format_domain_error(domain: &str, error: &str) -> String {
+    format!(
+        "{} {} {}",
+        domain.color(*DIM_COLOR),
+        "→".color(*DIM_COLOR),
+        format!("ERROR: {error}").color(*ERROR_COLOR)
+    )
 }
 
 /// Format a compact domain result for TLD checking
 pub fn format_tld_result(result: &CheckResult, indent: bool, max_domain_width: usize) -> String {
     let prefix = if indent { "  " } else { "" };
 
-    if let Some(error) = &result.error {
-        format!(
-            "{}{:<width$} {} {}",
-            prefix,
-            result.domain,
-            "→".color(*DIM_COLOR),
-            format!("ERROR: {error}").color(*ERROR_COLOR),
-            width = max_domain_width
-        )
+    let (status, color) = if result.available {
+        ("AVAILABLE", *AVAILABLE_COLOR)
     } else {
-        let (status, color) = if result.available {
-            ("AVAILABLE", *AVAILABLE_COLOR)
-        } else {
-            ("TAKEN", *TAKEN_COLOR)
-        };
+        ("TAKEN", *TAKEN_COLOR)
+    };
 
-        let response_time = format!("{}ms", result.response_time_ms).color(*DIM_COLOR);
+    format!(
+        "{}{:<width$} {} {}",
+        prefix,
+        result.domain,
+        "→".color(*DIM_COLOR),
+        status.color(color),
+        width = max_domain_width
+    )
+}
 
-        format!(
-            "{}{:<width$} {} {} {}",
-            prefix,
-            result.domain,
-            "→".color(*DIM_COLOR),
-            status.color(color),
-            format!("({response_time})").color(*DIM_COLOR),
-            width = max_domain_width
-        )
-    }
+/// Format a TLD error result
+pub fn format_tld_error(domain: &str, error: &str, indent: bool, max_domain_width: usize) -> String {
+    let prefix = if indent { "  " } else { "" };
+
+    format!(
+        "{}{:<width$} {} {}",
+        prefix,
+        domain,
+        "→".color(*DIM_COLOR),
+        format!("ERROR: {error}").color(*ERROR_COLOR),
+        width = max_domain_width
+    )
 }
 
 /// Create a progress bar for batch operations
@@ -122,7 +120,7 @@ pub fn create_progress_bar(total: u64, message: &str) -> ProgressBar {
     pb.set_style(
         ProgressStyle::default_bar()
             .template("{spinner:.green} {msg}\n{wide_bar:.cyan/blue} {pos}/{len} ({percent}%) {eta_precise}")
-            .unwrap()
+            .expect("hardcoded template is valid")
             .progress_chars("█▓▒░")
     );
     pb.set_message(message.to_string());
@@ -136,7 +134,7 @@ pub fn create_spinner(message: &str) -> ProgressBar {
     pb.set_style(
         ProgressStyle::default_spinner()
             .template("{spinner:.green} {msg}")
-            .unwrap()
+            .expect("hardcoded template is valid")
             .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
     );
     pb.set_message(message.to_string());
@@ -189,24 +187,6 @@ pub fn print_statistics(stats: &dotchk::export::Stats) {
         );
     }
 
-    // Performance section
-    println!("\n{}", "Performance".color(*DIM_COLOR));
-    println!(
-        "  Average          {}",
-        format!("{}ms", stats.avg_response_time_ms).color(*INFO_COLOR)
-    );
-    println!(
-        "  Median (P50)     {}",
-        format!("{}ms", stats.p50_response_time_ms).color(*INFO_COLOR)
-    );
-    println!(
-        "  95th Percentile  {}",
-        format!("{}ms", stats.p95_response_time_ms).color(*INFO_COLOR)
-    );
-    println!(
-        "  99th Percentile  {}",
-        format!("{}ms", stats.p99_response_time_ms).color(*INFO_COLOR)
-    );
 }
 
 /// Print statistics in a clean table format for TLD command
@@ -269,24 +249,6 @@ pub fn print_tld_statistics(stats: &dotchk::export::Stats) {
         .bold()
     );
 
-    // Performance section
-    println!("\n{}", "Performance".color(*DIM_COLOR));
-    println!(
-        "  Average          {}",
-        format!("{}ms", stats.avg_response_time_ms).color(*INFO_COLOR)
-    );
-    println!(
-        "  Median (P50)     {}",
-        format!("{}ms", stats.p50_response_time_ms).color(*INFO_COLOR)
-    );
-    println!(
-        "  95th Percentile  {}",
-        format!("{}ms", stats.p95_response_time_ms).color(*INFO_COLOR)
-    );
-    println!(
-        "  99th Percentile  {}",
-        format!("{}ms", stats.p99_response_time_ms).color(*INFO_COLOR)
-    );
 }
 
 /// Print a footer note

@@ -19,15 +19,96 @@ pub enum PatternError {
 // Using LazyLock (stable since Rust 1.80) instead of lazy_static
 static COMMON_TLDS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
     vec![
-        "com", "net", "org", "io", "co", "uk", "de", "fr", "it", "es", "nl", "ru", "jp", "cn",
-        "au", "ca", "br", "in", "kr", "mx", "us", "edu", "gov", "mil", "info", "biz", "name",
-        "tv", "cc", "me", "app", "dev", "xyz", "ai", "tech", "online", "store", "site", "website",
-        "blog", "shop", "cloud", "digital", "news", "club", "one", "world", "today", "life",
-        "live", "studio", "email", "solutions", "services", "marketing", "finance", "network",
-        "software", "systems", "technology", "agency", "academy", "center", "company", "computer",
-        "design", "energy", "engineering", "expert", "global", "group", "host", "international",
-        "media", "money", "photo", "photography", "plus", "pro", "social", "space", "support",
-        "team", "tips", "tools", "video", "web", "work", "works", "zone",
+        "com",
+        "net",
+        "org",
+        "io",
+        "co",
+        "uk",
+        "de",
+        "fr",
+        "it",
+        "es",
+        "nl",
+        "ru",
+        "jp",
+        "cn",
+        "au",
+        "ca",
+        "br",
+        "in",
+        "kr",
+        "mx",
+        "us",
+        "edu",
+        "gov",
+        "mil",
+        "info",
+        "biz",
+        "name",
+        "tv",
+        "cc",
+        "me",
+        "app",
+        "dev",
+        "xyz",
+        "ai",
+        "tech",
+        "online",
+        "store",
+        "site",
+        "website",
+        "blog",
+        "shop",
+        "cloud",
+        "digital",
+        "news",
+        "club",
+        "one",
+        "world",
+        "today",
+        "life",
+        "live",
+        "studio",
+        "email",
+        "solutions",
+        "services",
+        "marketing",
+        "finance",
+        "network",
+        "software",
+        "systems",
+        "technology",
+        "agency",
+        "academy",
+        "center",
+        "company",
+        "computer",
+        "design",
+        "energy",
+        "engineering",
+        "expert",
+        "global",
+        "group",
+        "host",
+        "international",
+        "media",
+        "money",
+        "photo",
+        "photography",
+        "plus",
+        "pro",
+        "social",
+        "space",
+        "support",
+        "team",
+        "tips",
+        "tools",
+        "video",
+        "web",
+        "work",
+        "works",
+        "zone",
     ]
 });
 
@@ -55,10 +136,7 @@ fn preprocess_pattern(pattern: &str) -> String {
                 // Check if it matches the TLD exactly or TLD followed by non-alphanumeric
                 if remaining_lower == *tld
                     || (remaining_lower.starts_with(tld)
-                        && remaining
-                            .chars()
-                            .nth(tld.len())
-                            .is_none_or(|c| !c.is_alphanumeric()))
+                        && remaining.chars().nth(tld.len()).is_none_or(|c| !c.is_alphanumeric()))
                 {
                     // Escape this dot
                     result.push('\\');
@@ -170,8 +248,7 @@ enum PatternPart {
 
 impl PatternIterator {
     fn new(pattern: &str) -> Self {
-        let parts = parse_pattern(pattern)
-            .unwrap_or_else(|_| vec![PatternPart::Literal(pattern.to_string())]);
+        let parts = parse_pattern(pattern).unwrap_or_else(|_| vec![PatternPart::Literal(pattern.to_string())]);
         let state = initialize_state(&parts);
 
         PatternIterator {
@@ -593,15 +670,9 @@ fn parse_pattern(pattern: &str) -> Result<Vec<PatternPart>> {
             let mut class_chars = Vec::new();
 
             while i < chars.len() && chars[i] != ']' {
-                if chars[i] == '-'
-                    && !class_chars.is_empty()
-                    && i + 1 < chars.len()
-                    && chars[i + 1] != ']'
-                {
+                if chars[i] == '-' && !class_chars.is_empty() && i + 1 < chars.len() && chars[i + 1] != ']' {
                     // Range
-                    let start = *class_chars
-                        .last()
-                        .expect("class_chars guaranteed non-empty by check above");
+                    let start = *class_chars.last().expect("class_chars guaranteed non-empty by check above");
                     i += 1;
                     let end = chars[i];
                     class_chars.pop();
@@ -725,10 +796,7 @@ mod tests {
         assert_eq!(preprocess_pattern("domain[a-z]\\.com"), "domain[a-z]\\.com");
 
         // Test patterns with TLDs in the middle
-        assert_eq!(
-            preprocess_pattern("get[a-z].com-site"),
-            "get[a-z]\\.com-site"
-        );
+        assert_eq!(preprocess_pattern("get[a-z].com-site"), "get[a-z]\\.com-site");
 
         // Test patterns with multiple dots (only TLD dots are escaped)
         assert_eq!(preprocess_pattern("sub.domain.com"), "sub.domain\\.com");

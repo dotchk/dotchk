@@ -5,8 +5,7 @@ use std::path::PathBuf;
 use tokio::fs;
 
 use super::output::{
-    create_progress_bar, format_domain_error, format_domain_result, print_footer_note, print_info,
-    print_warning,
+    create_progress_bar, format_domain_error, format_domain_result, print_footer_note, print_info, print_warning,
 };
 use super::utils::{export_results, print_stats};
 
@@ -30,17 +29,9 @@ pub async fn bulk_check(
         return Ok(());
     }
 
-    print_info(&format!(
-        "Loaded {} domains from {}",
-        domains.len(),
-        file.display()
-    ));
+    print_info(&format!("Loaded {} domains from {}", domains.len(), file.display()));
 
-    let checker = Checker::builder()
-        .max_parallel(parallel)?
-        .timeout_ms(timeout)?
-        .build()
-        .await?;
+    let checker = Checker::builder().max_parallel(parallel)?.timeout_ms(timeout)?.build().await?;
 
     let mut results = Vec::new();
     let pb = create_progress_bar(domains.len() as u64, "Checking domains");

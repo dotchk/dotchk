@@ -1,22 +1,19 @@
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-use dotchk::{get_public_tlds, CheckResult, Checker, DomainCheckerError, TLD_SERVERS};
+use dotchk::{CheckResult, Checker, DomainCheckerError, TLD_SERVERS, get_public_tlds};
 use futures::StreamExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 use super::output::{
-    create_progress_bar, format_tld_error, format_tld_result, print_footer_note, print_header,
-    print_info,
+    create_progress_bar, format_tld_error, format_tld_result, print_footer_note, print_header, print_info,
 };
 use super::utils::{export_results, print_tld_stats};
 
-const POPULAR_TLDS: &[&str] = &[
-    "com", "net", "org", "io", "dev", "app", "co", "me", "ai", "xyz", "info", "biz",
-];
+const POPULAR_TLDS: &[&str] = &["com", "net", "org", "io", "dev", "app", "co", "me", "ai", "xyz", "info", "biz"];
 
 const TECH_TLDS: &[&str] = &[
-    "io", "dev", "app", "tech", "cloud", "ai", "digital", "online", "software", "systems", "codes",
-    "tools", "network", "web", "site", "website", "host", "server", "data", "api",
+    "io", "dev", "app", "tech", "cloud", "ai", "digital", "online", "software", "systems", "codes", "tools", "network",
+    "web", "site", "website", "host", "server", "data", "api",
 ];
 
 const BUSINESS_TLDS: &[&str] = &[
@@ -62,14 +59,14 @@ const CREATIVE_TLDS: &[&str] = &[
 ];
 
 const RETAIL_TLDS: &[&str] = &[
-    "shop", "store", "buy", "sale", "deals", "market", "shopping", "boutique", "cheap", "bargains",
-    "discount", "promo", "coupon", "auction", "bid",
+    "shop", "store", "buy", "sale", "deals", "market", "shopping", "boutique", "cheap", "bargains", "discount",
+    "promo", "coupon", "auction", "bid",
 ];
 
 const COUNTRY_POPULAR: &[&str] = &[
-    "us", "uk", "de", "fr", "es", "it", "nl", "be", "ch", "at", "se", "no", "dk", "fi", "pl", "cz",
-    "gr", "pt", "ie", "ca", "au", "nz", "jp", "kr", "cn", "in", "sg", "hk", "my", "th", "id", "ph",
-    "vn", "br", "mx", "ar", "cl", "co", "za", "eg", "ae", "il",
+    "us", "uk", "de", "fr", "es", "it", "nl", "be", "ch", "at", "se", "no", "dk", "fi", "pl", "cz", "gr", "pt", "ie",
+    "ca", "au", "nz", "jp", "kr", "cn", "in", "sg", "hk", "my", "th", "id", "ph", "vn", "br", "mx", "ar", "cl", "co",
+    "za", "eg", "ae", "il",
 ];
 
 #[allow(clippy::too_many_arguments)]
@@ -90,9 +87,7 @@ pub async fn check_tlds(
     show_stats: bool,
 ) -> Result<()> {
     // Determine which TLDs to check
-    let tlds_to_check = determine_tlds(
-        popular, tech, business, creative, retail, country, tlds, all,
-    );
+    let tlds_to_check = determine_tlds(popular, tech, business, creative, retail, country, tlds, all);
 
     // Generate domain combinations
     let domains_to_check = generate_domain_combinations(&domains, &tlds_to_check);
@@ -103,11 +98,7 @@ pub async fn check_tlds(
         tlds_to_check.len()
     ));
 
-    let checker = Checker::builder()
-        .max_parallel(parallel)?
-        .timeout_ms(timeout)?
-        .build()
-        .await?;
+    let checker = Checker::builder().max_parallel(parallel)?.timeout_ms(timeout)?.build().await?;
 
     let mut results = Vec::new();
     let pb = create_progress_bar(domains_to_check.len() as u64, "Checking TLDs");
@@ -149,7 +140,10 @@ fn determine_tlds(
 
     if all {
         let public_tlds = get_public_tlds();
-        print_info(&format!("Using {} public TLDs (excluding private, adult, gambling, religious, and non-ASCII TLDs)", public_tlds.len()));
+        print_info(&format!(
+            "Using {} public TLDs (excluding private, adult, gambling, religious, and non-ASCII TLDs)",
+            public_tlds.len()
+        ));
         public_tlds.into_iter().map(|s| s.to_string()).collect()
     } else if let Some(tlds) = tlds {
         print_info(&format!("Using {} specified TLDs", tlds.len()));
@@ -206,8 +200,7 @@ fn determine_tlds(
                 selected_tlds.len(),
                 groups.join(", ")
             ));
-            let mut result: Vec<String> =
-                selected_tlds.into_iter().map(|s| s.to_string()).collect();
+            let mut result: Vec<String> = selected_tlds.into_iter().map(|s| s.to_string()).collect();
             result.sort(); // Sort for consistent output
             result
         }

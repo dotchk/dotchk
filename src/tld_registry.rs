@@ -8671,13 +8671,7 @@ pub fn get_tld_info(domain: &str) -> Option<&'static TldInfo> {
 pub fn get_public_tlds() -> Vec<&'static str> {
     TLD_SERVERS
         .entries()
-        .filter_map(|(tld, info)| {
-            if info.excluded_from_all {
-                None
-            } else {
-                Some(*tld)
-            }
-        })
+        .filter_map(|(tld, info)| if info.excluded_from_all { None } else { Some(*tld) })
         .collect()
 }
 

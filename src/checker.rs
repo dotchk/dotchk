@@ -26,9 +26,9 @@
 //!
 //! This ensures maximum reliability while preferring authoritative answers.
 
+use crate::DomainCheckerError;
 use crate::dns_pipelined::{DnsError, PipelinedDnsClient};
 use crate::tld_registry::get_tld_info;
-use crate::DomainCheckerError;
 use futures::stream::{self, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -210,13 +210,8 @@ impl Checker {
             return Err(DomainCheckerError::InvalidDomain(domain.to_string()));
         }
 
-        let tld_info = get_tld_info(domain)
-            .ok_or_else(|| DomainCheckerError::UnsupportedTld(extract_tld(domain)))?;
-        debug!(
-            "Got TLD info for {}: {} servers",
-            domain,
-            tld_info.servers.len()
-        );
+        let tld_info = get_tld_info(domain).ok_or_else(|| DomainCheckerError::UnsupportedTld(extract_tld(domain)))?;
+        debug!("Got TLD info for {}: {} servers", domain, tld_info.servers.len());
 
         debug!("Acquiring semaphore permit for {}", domain);
         let _permit = self.semaphore.acquire().await.map_err(|_| {
@@ -267,16 +262,9 @@ impl Checker {
                 tld_info.servers.len(),
                 domain
             );
-            match self
-                .dns_client
-                .query_ns(domain, server_ip, per_server_timeout)
-                .await
-            {
+            match self.dns_client.query_ns(domain, server_ip, per_server_timeout).await {
                 Ok(has_ns) => {
-                    debug!(
-                        "Server {} succeeded for {}: has_ns={}",
-                        server_ip, domain, has_ns
-                    );
+                    debug!("Server {} succeeded for {}: has_ns={}", server_ip, domain, has_ns);
                     return Ok(!has_ns);
                 }
                 Err(DnsError::NameError) => {
@@ -316,7 +304,10 @@ impl Checker {
         Err(DomainCheckerError::UnsupportedTld(extract_tld(domain)))
     }
 
-    pub fn check_stream(&self, domains: Vec<String>) -> impl Stream<Item = Result<CheckResult, DomainCheckerError>> + '_ {
+    pub fn check_stream(
+        &self,
+        domains: Vec<String>,
+    ) -> impl Stream<Item = Result<CheckResult, DomainCheckerError>> + '_ {
         let futures: Vec<_> = domains
             .into_iter()
             .map(|domain| {
@@ -365,10 +356,7 @@ impl Checker {
             .collect();
 
         // Process all checks concurrently with controlled parallelism
-        stream::iter(futures)
-            .buffer_unordered(self.max_parallel)
-            .collect()
-            .await
+        stream::iter(futures).buffer_unordered(self.max_parallel).collect().await
     }
 }
 
@@ -388,9 +376,10 @@ fn is_valid_domain(domain: &str) -> bool {
             return false;
         }
 
-        if !part.chars().all(|c| {
-            c.is_ascii_lowercase() || c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-'
-        }) {
+        if !part
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-')
+        {
             return false;
         }
 
@@ -465,12 +454,7 @@ mod tests {
     #[test]
     fn is_valid_domain_handles_edge_cases() {
         // Test maximum domain length (253 characters)
-        let long_domain = format!(
-            "{}.{}.{}.com",
-            "a".repeat(63),
-            "b".repeat(63),
-            "c".repeat(63)
-        );
+        let long_domain = format!("{}.{}.{}.com", "a".repeat(63), "b".repeat(63), "c".repeat(63));
         assert!(is_valid_domain(&long_domain));
 
         // Test domain that's too long

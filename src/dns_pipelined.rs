@@ -40,11 +40,11 @@
 use crate::dns_batch::BatchDnsSocket;
 use dashmap::DashMap;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::{Duration, Instant};
 use thiserror::Error;
-use tokio::sync::{mpsc, oneshot, Mutex};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use tokio::time::{interval, timeout};
 use tracing::{debug, warn};
 
@@ -126,21 +126,13 @@ impl PipelinedDnsClient {
         })
     }
 
-    pub async fn query_ns(
-        &self,
-        domain: &str,
-        server: &str,
-        timeout_ms: u64,
-    ) -> Result<bool> {
+    pub async fn query_ns(&self, domain: &str, server: &str, timeout_ms: u64) -> Result<bool> {
         let cache_key = format!("{domain}-{server}");
 
         // Check cache first
         if let Some(entry) = self.cache.get(&cache_key) {
             if entry.1.elapsed() < self.cache_ttl {
-                debug!(
-                    "Cache hit for domain {} on server {}: {}",
-                    domain, server, entry.0
-                );
+                debug!("Cache hit for domain {} on server {}: {}", domain, server, entry.0);
                 return Ok(entry.0);
             }
             self.cache.remove(&cache_key);
@@ -156,17 +148,13 @@ impl PipelinedDnsClient {
             response_tx,
         };
 
-        self.query_tx
-            .send(request)
-            .await
-            .map_err(|_| DnsError::ChannelClosed)?;
+        self.query_tx.send(request).await.map_err(|_| DnsError::ChannelClosed)?;
 
         // Wait for response
         match timeout(Duration::from_millis(timeout_ms), response_rx).await {
             Ok(Ok(result)) => {
                 if let Ok(has_ns_records) = result {
-                    self.cache
-                        .insert(cache_key, (has_ns_records, Instant::now()));
+                    self.cache.insert(cache_key, (has_ns_records, Instant::now()));
                 }
                 result
             }
@@ -194,10 +182,7 @@ impl PipelinedDnsClient {
                     return Ok(result);
                 }
                 Err(e) => {
-                    debug!(
-                        "System resolver {} failed for {}: {:?}",
-                        resolver, domain, e
-                    );
+                    debug!("System resolver {} failed for {}: {:?}", resolver, domain, e);
                     continue;
                 }
             }
@@ -208,18 +193,9 @@ impl PipelinedDnsClient {
     }
 
     /// Query a specific resolver directly
-    async fn query_resolver_direct(
-        &self,
-        domain: &str,
-        resolver_ip: &str,
-    ) -> Result<bool> {
+    async fn query_resolver_direct(&self, domain: &str, resolver_ip: &str) -> Result<bool> {
         // Query the resolver using our existing DNS infrastructure
-        match timeout(
-            Duration::from_millis(2000),
-            self.query_ns(domain, resolver_ip, 2000),
-        )
-        .await
-        {
+        match timeout(Duration::from_millis(2000), self.query_ns(domain, resolver_ip, 2000)).await {
             Ok(Ok(has_ns)) => Ok(has_ns),
             Ok(Err(DnsError::NameError)) => Ok(true), // NXDOMAIN means available
             Ok(Err(e)) => Err(e),
@@ -274,12 +250,7 @@ async fn process_queries_batch(
         let tx_id = loop {
             let current = transaction_id.load(Ordering::Relaxed);
             let next = if current == u16::MAX { 1 } else { current + 1 };
-            match transaction_id.compare_exchange_weak(
-                current,
-                next,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
+            match transaction_id.compare_exchange_weak(current, next, Ordering::Relaxed, Ordering::Relaxed) {
                 Ok(_) => break current,
                 Err(_) => continue, // Retry if another thread modified it
             }
@@ -353,9 +324,9 @@ async fn send_batches(
                     if len == 0 && i < tx_ids.len() {
                         // Failed to send this query
                         if let Some((_, pending)) = pending_queries.remove(&tx_ids[i]) {
-                            let _ = pending.response_tx.send(Err(DnsError::Socket(
-                                std::io::Error::other("Failed to send"),
-                            )));
+                            let _ = pending
+                                .response_tx
+                                .send(Err(DnsError::Socket(std::io::Error::other("Failed to send"))));
                         }
                     }
                 }
@@ -364,13 +335,9 @@ async fn send_batches(
                 // All queries in batch failed
                 for tx_id in tx_ids {
                     if let Some((_, pending)) = pending_queries.remove(&tx_id) {
-                        let _ =
-                            pending
-                                .response_tx
-                                .send(Err(DnsError::Socket(std::io::Error::new(
-                                    e.kind(),
-                                    e.to_string(),
-                                ))));
+                        let _ = pending
+                            .response_tx
+                            .send(Err(DnsError::Socket(std::io::Error::new(e.kind(), e.to_string()))));
                     }
                 }
             }
@@ -378,10 +345,7 @@ async fn send_batches(
     }
 }
 
-async fn handle_responses_batch(
-    batch_socket: Arc<BatchDnsSocket>,
-    pending_queries: Arc<DashMap<u16, PendingQuery>>,
-) {
+async fn handle_responses_batch(batch_socket: Arc<BatchDnsSocket>, pending_queries: Arc<DashMap<u16, PendingQuery>>) {
     loop {
         match batch_socket.recv_batch(MAX_RECV_BATCH_SIZE).await {
             Ok(messages) => {
@@ -474,10 +438,7 @@ fn get_system_resolvers() -> Vec<String> {
                         }
                     }
                 }
-                debug!(
-                    "Found {} system resolvers from resolv.conf",
-                    resolvers.len()
-                );
+                debug!("Found {} system resolvers from resolv.conf", resolvers.len());
             } else {
                 debug!("Failed to parse /etc/resolv.conf");
             }
@@ -507,10 +468,7 @@ fn get_system_resolvers() -> Vec<String> {
                         }
                     }
                 }
-                debug!(
-                    "Found {} DNS servers from Windows network adapters",
-                    resolvers.len()
-                );
+                debug!("Found {} DNS servers from Windows network adapters", resolvers.len());
             }
             Err(e) => {
                 debug!("Failed to get Windows network adapters: {}", e);

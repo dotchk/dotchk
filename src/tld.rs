@@ -48,10 +48,7 @@ impl Tld {
     /// assert_eq!(tld.as_str(), "uk");
     /// ```
     pub fn extract_from(domain: &str) -> Self {
-        let tld = domain
-            .split('.')
-            .next_back()
-            .unwrap_or(domain);
+        let tld = domain.split('.').next_back().unwrap_or(domain);
         Self(tld.to_string())
     }
 

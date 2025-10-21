@@ -1,5 +1,5 @@
-use crate::checker::CheckResult;
 use crate::DomainCheckerError;
+use crate::checker::CheckResult;
 use csv::Writer;
 use std::path::Path;
 use thiserror::Error;
@@ -87,7 +87,10 @@ impl CsvExporter {
         Ok(count)
     }
 
-    pub fn export_available_only(&self, results: &[std::result::Result<CheckResult, DomainCheckerError>]) -> Result<()> {
+    pub fn export_available_only(
+        &self,
+        results: &[std::result::Result<CheckResult, DomainCheckerError>],
+    ) -> Result<()> {
         let mut wtr = Writer::from_path(&self.path)?;
 
         // Write header
@@ -111,10 +114,7 @@ pub struct StatsExporter;
 impl StatsExporter {
     pub fn calculate_stats(results: &[std::result::Result<CheckResult, DomainCheckerError>]) -> Stats {
         let total = results.len();
-        let available = results
-            .iter()
-            .filter(|r| matches!(r, Ok(check) if check.available))
-            .count();
+        let available = results.iter().filter(|r| matches!(r, Ok(check) if check.available)).count();
         let errors = results.iter().filter(|r| r.is_err()).count();
 
         Stats {

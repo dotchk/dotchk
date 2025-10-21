@@ -4,8 +4,10 @@ use std::time::Duration;
 #[tokio::test]
 async fn test_real_domain_checks() {
     let checker = Checker::builder()
-        .max_parallel(5).expect("Failed to set max_parallel")
-        .timeout_ms(5000).expect("Failed to set timeout_ms")
+        .max_parallel(5)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(5000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
@@ -22,11 +24,7 @@ async fn test_real_domain_checks() {
     for result in results {
         match result {
             Ok(check) => {
-                assert!(
-                    !check.available,
-                    "Domain {} should not be available",
-                    check.domain
-                );
+                assert!(!check.available, "Domain {} should not be available", check.domain);
             }
             Err(_) => {
                 // Errors are acceptable (e.g., DNS timeout), just not "available"
@@ -38,8 +36,10 @@ async fn test_real_domain_checks() {
 #[tokio::test]
 async fn test_likely_unregistered_domains() {
     let checker = Checker::builder()
-        .max_parallel(5).expect("Failed to set max_parallel")
-        .timeout_ms(5000).expect("Failed to set timeout_ms")
+        .max_parallel(5)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(5000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
@@ -55,10 +55,7 @@ async fn test_likely_unregistered_domains() {
     for result in results {
         match result {
             Ok(check) => {
-                println!(
-                    "Domain {} availability: {}",
-                    check.domain, check.available
-                );
+                println!("Domain {} availability: {}", check.domain, check.available);
             }
             Err(e) => {
                 println!("Error checking domain: {}", e);
@@ -70,8 +67,10 @@ async fn test_likely_unregistered_domains() {
 #[tokio::test]
 async fn test_different_tlds() {
     let checker = Checker::builder()
-        .max_parallel(10).expect("Failed to set max_parallel")
-        .timeout_ms(5000).expect("Failed to set timeout_ms")
+        .max_parallel(10)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(5000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
@@ -100,8 +99,10 @@ async fn test_different_tlds() {
 #[tokio::test]
 async fn test_invalid_domains() {
     let checker = Checker::builder()
-        .max_parallel(5).expect("Failed to set max_parallel")
-        .timeout_ms(2000).expect("Failed to set timeout_ms")
+        .max_parallel(5)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(2000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
@@ -154,8 +155,10 @@ async fn test_pattern_generation_limits() {
 #[tokio::test]
 async fn test_concurrent_checks() {
     let checker = Checker::builder()
-        .max_parallel(100).expect("Failed to set max_parallel")
-        .timeout_ms(3000).expect("Failed to set timeout_ms")
+        .max_parallel(100)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(3000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
@@ -182,8 +185,10 @@ async fn test_concurrent_checks() {
 #[tokio::test]
 async fn test_edge_case_domains() {
     let checker = Checker::builder()
-        .max_parallel(5).expect("Failed to set max_parallel")
-        .timeout_ms(3000).expect("Failed to set timeout_ms")
+        .max_parallel(5)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(3000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
@@ -201,10 +206,7 @@ async fn test_edge_case_domains() {
     for result in results {
         match &result {
             Ok(check) => {
-                println!(
-                    "Edge case domain {}: available={}",
-                    check.domain, check.available
-                );
+                println!("Edge case domain {}: available={}", check.domain, check.available);
                 // These are all valid domains, should succeed
             }
             Err(e) => {
@@ -227,8 +229,10 @@ async fn test_csv_export() {
     use std::path::Path;
 
     let checker = Checker::builder()
-        .max_parallel(5).expect("Failed to set max_parallel")
-        .timeout_ms(3000).expect("Failed to set timeout_ms")
+        .max_parallel(5)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(3000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
@@ -254,8 +258,10 @@ async fn test_csv_export() {
 #[tokio::test]
 async fn test_timeout_handling() {
     let checker = Checker::builder()
-        .max_parallel(1).expect("Failed to set max_parallel")
-        .timeout_ms(1).expect("Failed to set timeout_ms") // Extremely short timeout
+        .max_parallel(1)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(1)
+        .expect("Failed to set timeout_ms") // Extremely short timeout
         .build()
         .await
         .expect("Failed to build checker");
@@ -305,8 +311,10 @@ fn test_pattern_edge_cases() {
 #[tokio::test]
 async fn test_tld_checking_multiple_domains() {
     let checker = Checker::builder()
-        .max_parallel(10).expect("Failed to set max_parallel")
-        .timeout_ms(3000).expect("Failed to set timeout_ms")
+        .max_parallel(10)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(3000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
@@ -315,10 +323,7 @@ async fn test_tld_checking_multiple_domains() {
     let tlds = ["com", "net", "org", "io", "dev"];
     let base_domain = "test-tld-check-2024";
 
-    let domains: Vec<String> = tlds
-        .iter()
-        .map(|tld| format!("{base_domain}.{tld}"))
-        .collect();
+    let domains: Vec<String> = tlds.iter().map(|tld| format!("{base_domain}.{tld}")).collect();
 
     let results = checker.check_batch(domains.clone()).await;
 
@@ -331,10 +336,7 @@ async fn test_tld_checking_multiple_domains() {
         .filter_map(|r| r.as_ref().ok().map(|check| check.domain.clone()))
         .collect();
 
-    assert_eq!(
-        expected_domains, result_domains,
-        "All domains should be checked"
-    );
+    assert_eq!(expected_domains, result_domains, "All domains should be checked");
 
     // Verify each result has valid data
     for result in &results {
@@ -344,10 +346,7 @@ async fn test_tld_checking_multiple_domains() {
                     domains.contains(&check.domain),
                     "Result domain should be in the input list"
                 );
-                println!(
-                    "TLD check {}: available={}",
-                    check.domain, check.available
-                );
+                println!("TLD check {}: available={}", check.domain, check.available);
             }
             Err(e) => {
                 println!("TLD check error: {}", e);
@@ -359,40 +358,35 @@ async fn test_tld_checking_multiple_domains() {
 #[tokio::test]
 async fn test_tld_popular_domains() {
     let checker = Checker::builder()
-        .max_parallel(20).expect("Failed to set max_parallel")
-        .timeout_ms(3000).expect("Failed to set timeout_ms")
+        .max_parallel(20)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(3000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
 
     // Test popular TLDs
     let popular_tlds = ["com", "net", "org", "io", "dev", "app", "co", "me"];
-    let test_domain = format!("unique-test-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
+    let test_domain = format!(
+        "unique-test-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    );
 
-    let domains: Vec<String> = popular_tlds
-        .iter()
-        .map(|tld| format!("{test_domain}.{tld}"))
-        .collect();
+    let domains: Vec<String> = popular_tlds.iter().map(|tld| format!("{test_domain}.{tld}")).collect();
 
     let results = checker.check_batch(domains).await;
 
     // Count available domains
-    let available_count = results
-        .iter()
-        .filter(|r| matches!(r, Ok(check) if check.available))
-        .count();
+    let available_count = results.iter().filter(|r| matches!(r, Ok(check) if check.available)).count();
 
-    println!(
-        "Available domains: {}/{}",
-        available_count,
-        popular_tlds.len()
-    );
+    println!("Available domains: {}/{}", available_count, popular_tlds.len());
 
     // At least some domains should be available with a unique timestamp-based name
-    assert!(
-        available_count > 0,
-        "Expected at least some domains to be available"
-    );
+    assert!(available_count > 0, "Expected at least some domains to be available");
 }
 
 #[test]
@@ -443,8 +437,10 @@ fn test_alternation_with_patterns() {
 #[tokio::test]
 async fn test_alternation_domain_checking() {
     let checker = Checker::builder()
-        .max_parallel(10).expect("Failed to set max_parallel")
-        .timeout_ms(3000).expect("Failed to set timeout_ms")
+        .max_parallel(10)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(3000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
@@ -479,10 +475,7 @@ async fn test_alternation_domain_checking() {
                     domains.contains(&check.domain),
                     "Result domain should be in the generated list"
                 );
-                println!(
-                    "Alternation check {}: available={}",
-                    check.domain, check.available
-                );
+                println!("Alternation check {}: available={}", check.domain, check.available);
             }
             Err(e) => {
                 println!("Alternation check error: {}", e);
@@ -539,8 +532,10 @@ fn test_alternation_edge_cases() {
 #[tokio::test]
 async fn test_range_quantifier_domain_checking() {
     let checker = Checker::builder()
-        .max_parallel(10).expect("Failed to set max_parallel")
-        .timeout_ms(3000).expect("Failed to set timeout_ms")
+        .max_parallel(10)
+        .expect("Failed to set max_parallel")
+        .timeout_ms(3000)
+        .expect("Failed to set timeout_ms")
         .build()
         .await
         .expect("Failed to build checker");
@@ -570,10 +565,7 @@ async fn test_range_quantifier_domain_checking() {
                 assert!(number_part.len() == 1 || number_part.len() == 2);
                 assert!(number_part.chars().all(|c| c.is_numeric()));
 
-                println!(
-                    "Range quantifier check {}: available={}",
-                    check.domain, check.available
-                );
+                println!("Range quantifier check {}: available={}", check.domain, check.available);
             }
             Err(e) => {
                 println!("Range quantifier check error: {}", e);

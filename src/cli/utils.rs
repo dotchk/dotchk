@@ -1,15 +1,12 @@
 use crate::cli::output::{
-    format_domain_error, format_domain_result, print_export_success, print_footer_note,
-    print_statistics, print_tld_statistics,
+    format_domain_error, format_domain_result, print_export_success, print_footer_note, print_statistics,
+    print_tld_statistics,
 };
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-use dotchk::{export::StatsExporter, CheckResult, CsvExporter, DomainCheckerError};
+use dotchk::{CheckResult, CsvExporter, DomainCheckerError, export::StatsExporter};
 use std::path::PathBuf;
 
-pub fn print_results(
-    results: &[std::result::Result<CheckResult, DomainCheckerError>],
-    available_only: bool,
-) {
+pub fn print_results(results: &[std::result::Result<CheckResult, DomainCheckerError>], available_only: bool) {
     let mut has_available = false;
 
     for result in results {
@@ -47,10 +44,7 @@ pub fn export_results(
 
     if available_only {
         exporter.export_available_only(results)?;
-        let available_count = results
-            .iter()
-            .filter(|r| matches!(r, Ok(check) if check.available))
-            .count();
+        let available_count = results.iter().filter(|r| matches!(r, Ok(check) if check.available)).count();
         print_export_success(&path.display().to_string(), available_count);
     } else {
         exporter.export(results)?;

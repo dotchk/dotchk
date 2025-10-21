@@ -88,7 +88,7 @@ pub use domain::Domain;
 pub use export::{CsvExporter, StatsExporter};
 pub use pattern::Pattern;
 pub use tld::Tld;
-pub use tld_registry::{get_public_tlds, get_tld_info, TLD_SERVERS};
+pub use tld_registry::{TLD_SERVERS, get_public_tlds, get_tld_info};
 
 use thiserror::Error;
 
@@ -107,7 +107,9 @@ pub enum DomainCheckerError {
     #[error("Invalid domain '{0}': must be 1-253 chars, valid labels (max 63 chars each), format: label.label.tld")]
     InvalidDomain(String),
 
-    #[error("TLD '.{0}' not supported or has no authoritative servers configured. Check https://www.iana.org/domains/root/db for valid TLDs")]
+    #[error(
+        "TLD '.{0}' not supported or has no authoritative servers configured. Check https://www.iana.org/domains/root/db for valid TLDs"
+    )]
     UnsupportedTld(String),
 
     #[error("Query timeout: DNS server did not respond within timeout period. Try increasing --timeout")]

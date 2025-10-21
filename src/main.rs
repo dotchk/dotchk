@@ -254,12 +254,7 @@ EXAMPLES:
         country: bool,
 
         /// Specific TLDs to check (comma-separated, e.g., com,io,dev)
-        #[arg(
-            long,
-            value_delimiter = ',',
-            conflicts_with = "popular",
-            conflicts_with = "all"
-        )]
+        #[arg(long, value_delimiter = ',', conflicts_with = "popular", conflicts_with = "all")]
         tlds: Option<Vec<String>>,
 
         /// Check all 1,440+ available TLDs (may take considerable time)
@@ -300,10 +295,7 @@ async fn main() -> Result<()> {
     // Initialize tracing only if not in quiet mode
     if !cli.quiet {
         tracing_subscriber::registry()
-            .with(
-                tracing_subscriber::EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| "dotchk=info".into()),
-            )
+            .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "dotchk=info".into()))
             .with(tracing_subscriber::fmt::layer())
             .init();
     } else {

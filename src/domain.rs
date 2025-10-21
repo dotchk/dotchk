@@ -3,8 +3,8 @@
 //! This module provides a type-safe wrapper for domain names,
 //! ensuring validation happens at construction time.
 
-use crate::tld::Tld;
 use crate::DomainCheckerError;
+use crate::tld::Tld;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::Deref;
@@ -111,9 +111,10 @@ fn is_valid_domain(domain: &str) -> bool {
             return false;
         }
 
-        if !part.chars().all(|c| {
-            c.is_ascii_lowercase() || c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-'
-        }) {
+        if !part
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-')
+        {
             return false;
         }
 
@@ -175,5 +176,4 @@ mod tests {
         let domain = Domain::new("example.com").unwrap();
         assert_eq!(format!("{}", domain), "example.com");
     }
-
 }

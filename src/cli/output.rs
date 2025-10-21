@@ -1,8 +1,8 @@
 use colored::*;
 use dotchk::CheckResult;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 // Global flag for quiet mode
@@ -62,12 +62,7 @@ pub fn format_domain_result(result: &CheckResult) -> String {
         "TAKEN".color(*TAKEN_COLOR)
     };
 
-    format!(
-        "{} {} {}",
-        result.domain,
-        "→".color(*DIM_COLOR),
-        status
-    )
+    format!("{} {} {}", result.domain, "→".color(*DIM_COLOR), status)
 }
 
 /// Format a domain error with colors
@@ -121,7 +116,7 @@ pub fn create_progress_bar(total: u64, message: &str) -> ProgressBar {
         ProgressStyle::default_bar()
             .template("{spinner:.green} {msg}\n{wide_bar:.cyan/blue} {pos}/{len} ({percent}%) {eta_precise}")
             .expect("hardcoded template is valid")
-            .progress_chars("█▓▒░")
+            .progress_chars("█▓▒░"),
     );
     pb.set_message(message.to_string());
     pb.enable_steady_tick(Duration::from_millis(100));
@@ -159,34 +154,21 @@ pub fn print_statistics(stats: &dotchk::export::Stats) {
     println!(
         "  Available        {} {}",
         stats.available.to_string().color(*AVAILABLE_COLOR).bold(),
-        format!(
-            "({:.1}%)",
-            (stats.available as f64 / stats.total as f64) * 100.0
-        )
-        .color(*DIM_COLOR)
+        format!("({:.1}%)", (stats.available as f64 / stats.total as f64) * 100.0).color(*DIM_COLOR)
     );
     println!(
         "  Taken            {} {}",
         stats.unavailable.to_string().color(*TAKEN_COLOR),
-        format!(
-            "({:.1}%)",
-            (stats.unavailable as f64 / stats.total as f64) * 100.0
-        )
-        .color(*DIM_COLOR)
+        format!("({:.1}%)", (stats.unavailable as f64 / stats.total as f64) * 100.0).color(*DIM_COLOR)
     );
 
     if stats.errors > 0 {
         println!(
             "  Errors           {} {}",
             stats.errors.to_string().color(*ERROR_COLOR),
-            format!(
-                "({:.1}%)",
-                (stats.errors as f64 / stats.total as f64) * 100.0
-            )
-            .color(*DIM_COLOR)
+            format!("({:.1}%)", (stats.errors as f64 / stats.total as f64) * 100.0).color(*DIM_COLOR)
         );
     }
-
 }
 
 /// Print statistics in a clean table format for TLD command
@@ -206,31 +188,19 @@ pub fn print_tld_statistics(stats: &dotchk::export::Stats) {
     println!(
         "  Available        {} {}",
         stats.available.to_string().color(*AVAILABLE_COLOR).bold(),
-        format!(
-            "({:.1}%)",
-            (stats.available as f64 / stats.total as f64) * 100.0
-        )
-        .color(*DIM_COLOR)
+        format!("({:.1}%)", (stats.available as f64 / stats.total as f64) * 100.0).color(*DIM_COLOR)
     );
     println!(
         "  Taken            {} {}",
         stats.unavailable.to_string().color(*TAKEN_COLOR),
-        format!(
-            "({:.1}%)",
-            (stats.unavailable as f64 / stats.total as f64) * 100.0
-        )
-        .color(*DIM_COLOR)
+        format!("({:.1}%)", (stats.unavailable as f64 / stats.total as f64) * 100.0).color(*DIM_COLOR)
     );
 
     if stats.errors > 0 {
         println!(
             "  Errors           {} {}",
             stats.errors.to_string().color(*ERROR_COLOR),
-            format!(
-                "({:.1}%)",
-                (stats.errors as f64 / stats.total as f64) * 100.0
-            )
-            .color(*DIM_COLOR)
+            format!("({:.1}%)", (stats.errors as f64 / stats.total as f64) * 100.0).color(*DIM_COLOR)
         );
     }
 
@@ -241,14 +211,10 @@ pub fn print_tld_statistics(stats: &dotchk::export::Stats) {
         "Registered in".color(*DIM_COLOR),
         stats.unavailable.to_string().color(*TAKEN_COLOR).bold(),
         format!("of {} TLDs", stats.total).color(*DIM_COLOR),
-        format!(
-            "({:.1}%)",
-            (stats.unavailable as f64 / stats.total as f64) * 100.0
-        )
-        .color(*HEADER_COLOR)
-        .bold()
+        format!("({:.1}%)", (stats.unavailable as f64 / stats.total as f64) * 100.0)
+            .color(*HEADER_COLOR)
+            .bold()
     );
-
 }
 
 /// Print a footer note
@@ -256,7 +222,8 @@ pub fn print_footer_note() {
     if is_quiet() {
         return;
     }
-    println!("\n{}", 
+    println!(
+        "\n{}",
         "Note: 'Available' indicates no NS records found. Always verify with WHOIS before purchasing."
             .color(*DIM_COLOR)
             .italic()

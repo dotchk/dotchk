@@ -12,11 +12,7 @@ pub async fn check_domains(
     available_only: bool,
     output: Option<PathBuf>,
 ) -> Result<()> {
-    let checker = Checker::builder()
-        .max_parallel(parallel)?
-        .timeout_ms(timeout)?
-        .build()
-        .await?;
+    let checker = Checker::builder().max_parallel(parallel)?.timeout_ms(timeout)?.build().await?;
 
     let spinner = create_spinner(&format!("Checking {} domains", domains.len()));
     let results = checker.check_batch(domains).await;

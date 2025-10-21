@@ -67,12 +67,7 @@ pub fn format_domain_result(result: &CheckResult) -> String {
 
 /// Format a domain error with colors
 pub fn format_domain_error(domain: &str) -> String {
-    format!(
-        "{} {} {}",
-        domain,
-        "→".color(*DIM_COLOR),
-        "FAILED".color(*ERROR_COLOR)
-    )
+    format!("{} {} {}", domain, "→".color(*DIM_COLOR), "FAILED".color(*ERROR_COLOR))
 }
 
 /// Format a compact domain result for TLD checking

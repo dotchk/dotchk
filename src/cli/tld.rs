@@ -296,9 +296,9 @@ fn print_grouped_results(
                             has_available = true;
                         }
                     }
-                    Err(e) => {
+                    Err(_e) => {
                         if !available_only {
-                            println!("{}", format_tld_error("unknown", &e.to_string(), true, max_width));
+                            println!("{}", format_tld_error("unknown", true, max_width));
                         }
                     }
                 }

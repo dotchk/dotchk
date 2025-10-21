@@ -42,10 +42,10 @@ pub async fn check_pattern(
                     has_available = true;
                 }
             }
-            Err(e) => {
+            Err(_e) => {
                 if !available_only {
                     pb.suspend(|| {
-                        println!("{}", format_domain_error("unknown", &e.to_string()));
+                        println!("{}", format_domain_error("unknown"));
                     });
                 }
             }

@@ -22,9 +22,9 @@ pub fn print_results(results: &[std::result::Result<CheckResult, DomainCheckerEr
                     has_available = true;
                 }
             }
-            Err(e) => {
+            Err(_e) => {
                 if !available_only {
-                    println!("{}", format_domain_error("unknown", &e.to_string()));
+                    println!("{}", format_domain_error("unknown"));
                 }
             }
         }

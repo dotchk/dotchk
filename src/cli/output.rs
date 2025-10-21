@@ -66,12 +66,12 @@ pub fn format_domain_result(result: &CheckResult) -> String {
 }
 
 /// Format a domain error with colors
-pub fn format_domain_error(domain: &str, error: &str) -> String {
+pub fn format_domain_error(domain: &str) -> String {
     format!(
         "{} {} {}",
-        domain.color(*DIM_COLOR),
+        domain,
         "→".color(*DIM_COLOR),
-        format!("ERROR: {error}").color(*ERROR_COLOR)
+        "FAILED".color(*ERROR_COLOR)
     )
 }
 
@@ -96,7 +96,7 @@ pub fn format_tld_result(result: &CheckResult, indent: bool, max_domain_width: u
 }
 
 /// Format a TLD error result
-pub fn format_tld_error(domain: &str, error: &str, indent: bool, max_domain_width: usize) -> String {
+pub fn format_tld_error(domain: &str, indent: bool, max_domain_width: usize) -> String {
     let prefix = if indent { "  " } else { "" };
 
     format!(
@@ -104,7 +104,7 @@ pub fn format_tld_error(domain: &str, error: &str, indent: bool, max_domain_widt
         prefix,
         domain,
         "→".color(*DIM_COLOR),
-        format!("ERROR: {error}").color(*ERROR_COLOR),
+        "FAILED".color(*ERROR_COLOR),
         width = max_domain_width
     )
 }

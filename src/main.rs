@@ -295,7 +295,7 @@ async fn main() -> Result<()> {
     // Initialize tracing only if not in quiet mode
     if !cli.quiet {
         tracing_subscriber::registry()
-            .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "dotchk=info".into()))
+            .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "dotchk=error".into()))
             .with(tracing_subscriber::fmt::layer())
             .init();
     } else {
